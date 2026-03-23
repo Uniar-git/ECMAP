@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECMAP - eSports Training</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ===== オフラインバナー ===== -->
+  <div class="offline-banner" id="offline-banner">
+    オフラインです。スコアの保存・読み込みにはネットワーク接続が必要です。
+  </div>
+
+  <!-- ===== ローディングオーバーレイ ===== -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="spinner"></div>
+    <div class="loading-text">データを読み込んでいます...</div>
+  </div>
+
+  <!-- ===== ヘッダー ===== -->
+  <header>
+    <div class="logo">
+      ECMAP
+      <span>eSports Cognitive-Motor Assessment Platform</span>
+    </div>
+    <div class="header-stats">
+      <div class="header-stat">
+        <div class="label">総プレイ回数</div>
+        <div class="value" id="total-plays">--</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== メイン ===== -->
+  <main>
+
+    <!-- エラーバナー -->
+    <div class="error-banner" id="error-banner"></div>
+
+    <!-- ゲーム選択 -->
+    <section>
+      <div class="section-title">ゲームを選択</div>
+      <div class="games-grid">
+
+        <div class="game-card green">
+          <div class="game-card-header">
+            <div class="game-name">基本エイム</div>
+            <div class="game-badge badge-green">Baseline</div>
+          </div>
+          <div class="game-desc">認知負荷なしの純粋なエイム操作。基準となるパフォーマンスを測定します。</div>
+          <div class="game-meta">
+            <div class="best-score" id="best-basic-aim">ベスト: <span>--</span></div>
+            <button class="play-btn btn-green" onclick="location.href='game-basic-aim.html'">開始</button>
+          </div>
+        </div>
+
+        <div class="game-card orange">
+          <div class="game-card-header">
+            <div class="game-name">注意配分</div>
+            <div class="game-badge badge-orange">Divided Attention</div>
+          </div>
+          <div class="game-desc">中央のエイムを維持しながら周辺刺激にも反応する二重課題です。</div>
+          <div class="game-meta">
+            <div class="best-score" id="best-divided-attention">ベスト: <span>--</span></div>
+            <button class="play-btn btn-orange" onclick="location.href='game-divided-attention.html'">開始</button>
+          </div>
+        </div>
+
+        <div class="game-card red">
+          <div class="game-card-header">
+            <div class="game-name">抑制課題</div>
+            <div class="game-badge badge-red">Go / No-Go</div>
+          </div>
+          <div class="game-desc">撃ってよいターゲットと撃ってはいけないターゲットを判別し、衝動を抑制します。</div>
+          <div class="game-meta">
+            <div class="best-score" id="best-go-nogo">ベスト: <span>--</span></div>
+            <button class="play-btn btn-red" onclick="location.href='game-go-nogo.html'">開始</button>
+          </div>
+        </div>
+
+        <div class="game-card purple">
+          <div class="game-card-header">
+            <div class="game-name">ルール切替</div>
+            <div class="game-badge badge-purple">Task Switching</div>
+          </div>
+          <div class="game-desc">課題の途中でルールが変化します。認知的柔軟性への負荷を評価します。</div>
+          <div class="game-meta">
+            <div class="best-score" id="best-task-switching">ベスト: <span>--</span></div>
+            <button class="play-btn btn-purple" onclick="location.href='game-task-switching.html'">開始</button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ゲーム別統計 -->
+    <section>
+      <div class="section-title">ゲーム別統計</div>
+      <div class="stats-grid" id="stats-grid"></div>
+    </section>
+
+    <!-- ダッシュボード -->
+    <section>
+      <div class="section-title">パフォーマンス</div>
+      <div class="dashboard-row">
+
+        <div class="panel">
+          <div style="font-size:14px; font-weight:600;">直近のスコア推移</div>
+          <div class="chart-wrapper">
+            <canvas id="score-chart"></canvas>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div style="font-size:14px; font-weight:600;">プレイ履歴</div>
+          <div class="filter-bar" id="filter-bar"></div>
+          <div class="history-list" id="history-list">
+            <p class="history-empty">読み込み中...</p>
+          </div>
+          <button class="reset-btn" onclick="clearHistory()">履歴をリセット</button>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- アプリロジック -->
+  <script src="app.js"></script>
+</body>
+</html>

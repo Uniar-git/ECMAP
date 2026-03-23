@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ルール切替 - ECMAP</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 24px;
+    }
+    h1 { color: #8b5cf6; }
+    p  { color: #8b949e; }
+    button {
+      padding: 12px 32px;
+      background: #8b5cf6;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <a class="back-btn" href="index.html">← ホームへ戻る</a>
+  <h1>ルール切替（Task Switching）</h1>
+  <p>ここにゲームが入ります（実装予定）</p>
+
+  <button onclick="finishGame('ルール切替', 4567)">テスト完了（スコア: 4567）</button>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="game-utils.js"></script>
+</body>
+</html>

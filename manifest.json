@@ -1,0 +1,11 @@
+{
+  "name": "ECMAP - eSports Training",
+  "short_name": "ECMAP",
+  "description": "eSports Cognitive-Motor Assessment Platform",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#00b4d8",
+  "lang": "ja",
+  "icons": []
+}
