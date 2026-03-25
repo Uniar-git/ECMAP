@@ -51,11 +51,14 @@ function initOfflineBanner() {
 async function fetchHistory(userId) {
   const snapshot = await db.collection("results")
     .where("userId", "==", userId)
-    .orderBy("playedAt", "desc")
-    .limit(100)
     .get();
 
-  return snapshot.docs.map(doc => doc.data());
+  return snapshot.docs
+    .map(doc => doc.data())
+    .sort((a, b) => {
+      const toMs = v => v?.toDate?.().getTime() ?? new Date(v ?? 0).getTime();
+      return toMs(b.playedAt) - toMs(a.playedAt);
+    });
 }
 
 // ===== ヘッダーの総プレイ回数 =====
@@ -223,7 +226,7 @@ function renderChart(history) {
 async function clearHistory() {
   if (!confirm("スコア履歴をすべて削除しますか？")) return;
 
-  const userId = await authReady;
+  const userId = auth.currentUser?.uid;
   if (!userId) return;
 
   showLoading();
@@ -251,26 +254,35 @@ function renderAll(history) {
   renderChart(history);
 }
 
+// ===== ログアウト =====
+async function logout() {
+  await auth.signOut();
+  window.location.href = "login.html";
+}
+
 // ===== 初期化 =====
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", () => {
   initOfflineBanner();
   showLoading();
 
-  try {
-    const userId = await authReady;
-
-    if (!userId) {
-      showError("Firebaseへの接続に失敗しました。firebase-config.js の設定を確認してください。");
-      hideLoading();
+  auth.onAuthStateChanged(async user => {
+    if (!user) {
+      window.location.href = "login.html";
       return;
     }
 
-    cachedHistory = await fetchHistory(userId);
-    renderAll(cachedHistory);
-  } catch (err) {
-    console.error(err);
-    showError("データの読み込みに失敗しました。ネットワーク接続を確認してください。");
-  } finally {
-    hideLoading();
-  }
+    // ヘッダーにメールアドレスを表示
+    const emailEl = document.getElementById("user-email");
+    if (emailEl) emailEl.textContent = user.email;
+
+    try {
+      cachedHistory = await fetchHistory(user.uid);
+      renderAll(cachedHistory);
+    } catch (err) {
+      console.error(err);
+      showError("データの読み込みに失敗しました。ネットワーク接続を確認してください。");
+    } finally {
+      hideLoading();
+    }
+  });
 });

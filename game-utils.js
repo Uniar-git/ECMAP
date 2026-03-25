@@ -11,11 +11,11 @@
  * @param {number} score    - スコア（数値のみ）
  */
 async function finishGame(gameName, score) {
-  const userId = await authReady;
+  const user = auth.currentUser;
 
-  if (!userId) {
-    console.error("ユーザーIDが取得できませんでした。オフラインか設定エラーの可能性があります。");
-    window.location.href = "index.html";
+  // 未ログインならログイン画面へ
+  if (!user) {
+    window.location.href = "login.html";
     return;
   }
 
@@ -23,7 +23,7 @@ async function finishGame(gameName, score) {
     gameId:    "eSports-Training",
     gameName:  gameName,
     score:     score,
-    userId:    userId,
+    userId:    user.uid,
     playedAt:  firebase.firestore.FieldValue.serverTimestamp()
   };
 

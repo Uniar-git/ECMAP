@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ログイン - ECMAP</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .login-logo {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent-blue);
+      letter-spacing: 3px;
+      margin-bottom: 4px;
+    }
+
+    .login-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+      letter-spacing: 1px;
+    }
+
+    .login-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .tab-bar {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+
+    .tab {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .tab.active {
+      color: var(--accent-blue);
+      border-bottom-color: var(--accent-blue);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    input[type="email"],
+    input[type="password"] {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    input:focus {
+      border-color: var(--accent-blue);
+    }
+
+    .submit-btn {
+      width: 100%;
+      background: var(--accent-blue);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 12px;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 0.2s;
+    }
+
+    .submit-btn:hover { opacity: 0.85; }
+    .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .auth-error {
+      display: none;
+      font-size: 12px;
+      color: var(--accent-red);
+      background: rgba(248, 81, 73, 0.1);
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 16px;
+    }
+
+    .auth-error.visible { display: block; }
+  </style>
+</head>
+<body>
+
+  <div class="login-logo">ECMAP</div>
+  <div class="login-subtitle">eSports Cognitive-Motor Assessment Platform</div>
+
+  <div class="login-card">
+
+    <div class="tab-bar">
+      <button class="tab active" id="tab-login"  onclick="switchTab('login')">ログイン</button>
+      <button class="tab"        id="tab-signup" onclick="switchTab('signup')">新規登録</button>
+    </div>
+
+    <div class="auth-error" id="auth-error"></div>
+
+    <!-- ログインフォーム -->
+    <form id="form-login" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label>メールアドレス</label>
+        <input type="email" id="login-email" placeholder="example@email.com" required>
+      </div>
+      <div class="form-group">
+        <label>パスワード</label>
+        <input type="password" id="login-password" placeholder="6文字以上" required>
+      </div>
+      <button class="submit-btn" type="submit" id="login-btn">ログイン</button>
+    </form>
+
+    <!-- 新規登録フォーム -->
+    <form id="form-signup" style="display:none" onsubmit="handleSignup(event)">
+      <div class="form-group">
+        <label>メールアドレス</label>
+        <input type="email" id="signup-email" placeholder="example@email.com" required>
+      </div>
+      <div class="form-group">
+        <label>パスワード（6文字以上）</label>
+        <input type="password" id="signup-password" placeholder="6文字以上" required>
+      </div>
+      <div class="form-group">
+        <label>パスワード（確認）</label>
+        <input type="password" id="signup-password2" placeholder="もう一度入力" required>
+      </div>
+      <button class="submit-btn" type="submit" id="signup-btn">アカウントを作成</button>
+    </form>
+
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script>
+    // すでにログイン済みならホームへ
+    auth.onAuthStateChanged(user => {
+      if (user) window.location.href = "index.html";
+    });
+
+    // タブ切替
+    function switchTab(tab) {
+      const isLogin = tab === "login";
+      document.getElementById("form-login").style.display  = isLogin ? "" : "none";
+      document.getElementById("form-signup").style.display = isLogin ? "none" : "";
+      document.getElementById("tab-login").classList.toggle("active",  isLogin);
+      document.getElementById("tab-signup").classList.toggle("active", !isLogin);
+      hideError();
+    }
+
+    // エラー表示
+    function showError(msg) {
+      const el = document.getElementById("auth-error");
+      el.textContent = msg;
+      el.classList.add("visible");
+    }
+
+    function hideError() {
+      document.getElementById("auth-error").classList.remove("visible");
+    }
+
+    // Firebaseのエラーコードを日本語に変換
+    function translateError(code) {
+      const map = {
+        "auth/invalid-email":          "メールアドレスの形式が正しくありません。",
+        "auth/user-not-found":         "このメールアドレスは登録されていません。",
+        "auth/wrong-password":         "パスワードが間違っています。",
+        "auth/invalid-credential":     "メールアドレスまたはパスワードが間違っています。",
+        "auth/email-already-in-use":   "このメールアドレスはすでに登録されています。",
+        "auth/weak-password":          "パスワードは6文字以上にしてください。",
+        "auth/too-many-requests":      "試行回数が多すぎます。しばらく待ってから再試行してください。",
+      };
+      return map[code] || "エラーが発生しました。もう一度お試しください。";
+    }
+
+    // ログイン処理
+    async function handleLogin(e) {
+      e.preventDefault();
+      hideError();
+      const btn = document.getElementById("login-btn");
+      btn.disabled = true;
+      btn.textContent = "ログイン中...";
+
+      const email    = document.getElementById("login-email").value;
+      const password = document.getElementById("login-password").value;
+
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+        // onAuthStateChanged がリダイレクト処理
+      } catch (err) {
+        showError(translateError(err.code));
+        btn.disabled = false;
+        btn.textContent = "ログイン";
+      }
+    }
+
+    // 新規登録処理
+    async function handleSignup(e) {
+      e.preventDefault();
+      hideError();
+
+      const password  = document.getElementById("signup-password").value;
+      const password2 = document.getElementById("signup-password2").value;
+
+      if (password !== password2) {
+        showError("パスワードが一致しません。");
+        return;
+      }
+
+      const btn = document.getElementById("signup-btn");
+      btn.disabled = true;
+      btn.textContent = "作成中...";
+
+      const email = document.getElementById("signup-email").value;
+
+      try {
+        await auth.createUserWithEmailAndPassword(email, password);
+        // onAuthStateChanged がリダイレクト処理
+      } catch (err) {
+        showError(translateError(err.code));
+        btn.disabled = false;
+        btn.textContent = "アカウントを作成";
+      }
+    }
+  </script>
+</body>
+</html>
