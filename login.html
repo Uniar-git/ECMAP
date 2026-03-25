@@ -122,6 +122,60 @@
     }
 
     .auth-error.visible { display: block; }
+
+    /* ソーシャルログイン */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .social-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .social-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 11px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .social-btn:hover {
+      background: var(--bg-card);
+      border-color: var(--text-secondary);
+    }
+
+    .social-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .social-btn svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -167,6 +221,31 @@
       </div>
       <button class="submit-btn" type="submit" id="signup-btn">アカウントを作成</button>
     </form>
+
+    <!-- ソーシャルログイン -->
+    <div class="divider">または</div>
+    <div class="social-btns">
+
+      <button class="social-btn" id="btn-google" onclick="handleGoogle()">
+        <!-- Google アイコン -->
+        <svg viewBox="0 0 48 48">
+          <path fill="#EA4335" d="M24 9.5c3.14 0 5.95 1.08 8.17 2.86l6.1-6.1C34.46 3.05 29.53 1 24 1 14.82 1 7.07 6.48 3.64 14.22l7.1 5.52C12.4 13.67 17.73 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.52 24.5c0-1.64-.15-3.22-.42-4.74H24v8.98h12.67c-.55 2.94-2.2 5.43-4.68 7.1l7.18 5.58C43.36 37.27 46.52 31.36 46.52 24.5z"/>
+          <path fill="#FBBC05" d="M10.74 28.26A14.5 14.5 0 0 1 9.5 24c0-1.48.26-2.9.72-4.24l-7.1-5.52A23.94 23.94 0 0 0 0 24c0 3.86.92 7.5 2.56 10.72l8.18-6.46z"/>
+          <path fill="#34A853" d="M24 47c5.53 0 10.17-1.83 13.56-4.97l-7.18-5.58c-1.83 1.23-4.17 1.95-6.38 1.95-6.27 0-11.6-4.17-13.26-9.8l-8.18 6.46C7.07 41.52 14.82 47 24 47z"/>
+        </svg>
+        Googleでログイン
+      </button>
+
+      <button class="social-btn" id="btn-apple" onclick="handleApple()">
+        <!-- Apple アイコン -->
+        <svg viewBox="0 0 814 1000" fill="currentColor">
+          <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 376.8 0 248.4 0 124.3 0 55.7 25 10.7 74.6 .5 99.3-4.8 127.6 0 150.8 17.7l68.5 56.9c10 8.4 22 13 34.1 13 12.4 0 24.4-4.7 34.4-13.3L357.9 18c21.8-18.3 49.5-28 79.4-28 50.9 0 92.3 22.9 121.4 61.2 39.1 51.2 59.7 121.9 59.7 193.2 0 1.3-.1 2.7-.3 4zM498.4 343.4c-12.3-17.8-21.5-41.2-21.5-66.2 0-7.6.6-15.2 1.8-22.2-36.2 3.8-68.4 24.3-91.7 55.4-24.6 32.8-38.5 75.7-38.5 118.4 0 34.3 7.7 66.6 22.1 92.1 13.2 23.3 33.5 41.2 57.7 41.2 22.4 0 36.1-15 64.5-15 27.3 0 43.4 15 66.4 15 25.4 0 47.5-18.9 62.4-44.6 10.7-18.4 18.1-39.9 21.7-62.6-37.4-17.1-64.9-55.2-64.9-111.9z"/>
+        </svg>
+        Appleでログイン
+      </button>
+
+    </div>
 
   </div>
 
@@ -234,6 +313,48 @@
         showError(translateError(err.code));
         btn.disabled = false;
         btn.textContent = "ログイン";
+      }
+    }
+
+    // Google ログイン
+    async function handleGoogle() {
+      hideError();
+      const btn = document.getElementById("btn-google");
+      btn.disabled = true;
+      btn.childNodes[2].textContent = " ログイン中...";
+
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        await auth.signInWithPopup(provider);
+        // onAuthStateChanged がリダイレクト処理
+      } catch (err) {
+        if (err.code !== "auth/popup-closed-by-user") {
+          showError(translateError(err.code));
+        }
+        btn.disabled = false;
+        btn.childNodes[2].textContent = " Googleでログイン";
+      }
+    }
+
+    // Apple ログイン
+    async function handleApple() {
+      hideError();
+      const btn = document.getElementById("btn-apple");
+      btn.disabled = true;
+      btn.childNodes[2].textContent = " ログイン中...";
+
+      try {
+        const provider = new firebase.auth.OAuthProvider("apple.com");
+        provider.addScope("email");
+        provider.addScope("name");
+        await auth.signInWithPopup(provider);
+        // onAuthStateChanged がリダイレクト処理
+      } catch (err) {
+        if (err.code !== "auth/popup-closed-by-user") {
+          showError(translateError(err.code));
+        }
+        btn.disabled = false;
+        btn.childNodes[2].textContent = " Appleでログイン";
       }
     }
 
