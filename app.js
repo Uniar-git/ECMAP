@@ -265,7 +265,15 @@ document.addEventListener("DOMContentLoaded", () => {
   initOfflineBanner();
   showLoading();
 
+  // 10秒以内にFirebaseが応答しない場合はエラーを表示
+  const authTimeout = setTimeout(() => {
+    hideLoading();
+    showError("接続がタイムアウトしました。ページを再読み込みするか、ネットワーク接続を確認してください。");
+  }, 10000);
+
   auth.onAuthStateChanged(async user => {
+    clearTimeout(authTimeout);
+
     if (!user) {
       window.location.href = "login.html";
       return;

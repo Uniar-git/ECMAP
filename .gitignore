@@ -1,6 +1,9 @@
 # Firebaseの設定ファイル（APIキーを含むためgit管理対象外）
 firebase-config.js
 
+# Firebase Hosting キャッシュ
+.firebase/
+
 # macOS
 .DS_Store
 
