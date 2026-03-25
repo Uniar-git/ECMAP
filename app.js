@@ -260,16 +260,29 @@ async function logout() {
   window.location.href = "login.html";
 }
 
+// ===== ローディング画面にエラーを表示（オーバーレイ上） =====
+function showLoadingError(message) {
+  document.getElementById("loading-spinner").style.display = "none";
+  document.getElementById("loading-text").textContent = message;
+  document.getElementById("loading-text").style.color = "#f85149";
+  document.getElementById("loading-reload-btn").style.display = "block";
+}
+
 // ===== 初期化 =====
 document.addEventListener("DOMContentLoaded", () => {
   initOfflineBanner();
   showLoading();
 
-  // 10秒以内にFirebaseが応答しない場合はエラーを表示
+  // Firebase自体が読み込めていない場合（CDNブロックなど）
+  if (typeof auth === "undefined") {
+    showLoadingError("Firebaseの読み込みに失敗しました。\nネットワーク接続を確認してください。");
+    return;
+  }
+
+  // 8秒以内に応答がなければエラーを表示
   const authTimeout = setTimeout(() => {
-    hideLoading();
-    showError("接続がタイムアウトしました。ページを再読み込みするか、ネットワーク接続を確認してください。");
-  }, 10000);
+    showLoadingError("接続がタイムアウトしました。\nネットワーク接続を確認してください。");
+  }, 8000);
 
   auth.onAuthStateChanged(async user => {
     clearTimeout(authTimeout);

@@ -16,8 +16,14 @@
 
   <!-- ===== ローディングオーバーレイ ===== -->
   <div class="loading-overlay" id="loading-overlay">
-    <div class="spinner"></div>
-    <div class="loading-text">データを読み込んでいます...</div>
+    <div class="spinner" id="loading-spinner"></div>
+    <div class="loading-text" id="loading-text">データを読み込んでいます...</div>
+    <button
+      id="loading-reload-btn"
+      style="display:none; margin-top:8px; padding:10px 24px; background:#00b4d8; color:#000; border:none; border-radius:8px; font-size:14px; font-weight:700; cursor:pointer;"
+      onclick="location.reload()">
+      再読み込み
+    </button>
   </div>
 
   <!-- ===== ヘッダー ===== -->
