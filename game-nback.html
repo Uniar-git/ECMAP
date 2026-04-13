@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COLOR×NUMBER N-BACK</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@400;600;700;800;900&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  :root {
+    --bg: #07080e;
+    --surface: #0f1219;
+    --surface2: #181d2a;
+    --border: rgba(255,255,255,0.06);
+    --text: #e4e8f0;
+    --dim: #4e566e;
+    --accent: #818cf8;
+    --accent-glow: rgba(129,140,248,0.3);
+    --correct: #34d399;
+    --incorrect: #f87171;
+    --missed: #fbbf24;
+  }
+
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh; overflow-x: hidden;
+  }
+
+  .screen { display:none; min-height:100vh; flex-direction:column; align-items:center; justify-content:center; padding:24px; position:relative; }
+  .screen.active { display:flex; }
+
+  .bg-glow {
+    position:absolute; inset:0; pointer-events:none;
+    background: radial-gradient(ellipse at 35% 25%, rgba(129,140,248,0.07) 0%, transparent 55%),
+                radial-gradient(ellipse at 70% 80%, rgba(168,85,247,0.05) 0%, transparent 50%);
+  }
+
+  .mono { font-family: 'Space Mono', monospace; }
+
+  .btn {
+    border:none; cursor:pointer; font-family:'Outfit',sans-serif;
+    transition: all 0.2s ease; outline:none;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary {
+    width:100%; padding:16px; border-radius:14px;
+    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    color:#fff; font-size:15px; font-weight:700;
+    letter-spacing:3px; box-shadow: 0 4px 24px var(--accent-glow);
+  }
+
+  .level-card {
+    background: var(--surface); border-radius:14px; padding:16px;
+    border: 2px solid transparent; cursor:pointer;
+    transition: all 0.2s ease; text-align:center;
+  }
+  .level-card:hover { border-color: rgba(129,140,248,0.3); }
+  .level-card.selected { border-color: var(--accent); box-shadow: 0 0 20px var(--accent-glow); }
+
+  .choice-btn {
+    padding:18px 14px; border-radius:14px;
+    background: var(--surface); cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    font-family:'Outfit',sans-serif; transition: all 0.15s ease;
+  }
+  .choice-btn:active { transform:scale(0.96); }
+  .choice-btn:disabled { cursor:default; }
+
+  .dot { width:11px; height:11px; border-radius:3px; display:inline-block; }
+
+  @keyframes popIn { from{opacity:0;transform:scale(0.7)} to{opacity:1;transform:scale(1)} }
+  @keyframes slideUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
+  @keyframes flash { from{opacity:1} to{opacity:0} }
+
+  .pop { animation: popIn 0.25s ease; }
+  .slide { animation: slideUp 0.2s ease; }
+
+  .result-dot-row { display:flex; gap:4px; justify-content:center; flex-wrap:wrap; margin:24px 0; }
+
+  .back-btn {
+    position:fixed; top:14px; left:14px;
+    padding:8px 16px; border-radius:8px;
+    background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+    color:#8b949e; font-size:13px; font-weight:600; text-decoration:none;
+    z-index:300; transition:background 0.2s;
+  }
+  .back-btn:hover { background:rgba(255,255,255,0.1); }
+</style>
+</head>
+<body>
+
+<a class="back-btn" href="index.html">← ホームへ戻る</a>
+
+<!-- ══════════ MENU ══════════ -->
+<div id="menu" class="screen active">
+  <div class="bg-glow"></div>
+  <div style="position:relative;text-align:center;max-width:420px;width:100%">
+    <div class="mono" style="font-size:11px;letter-spacing:6px;color:var(--accent);margin-bottom:14px">SIMULTANEOUS DUAL TASK</div>
+    <h1 style="font-size:clamp(28px,6vw,40px);font-weight:900;margin:0 0 6px;line-height:1.2;
+      background:linear-gradient(135deg,var(--text) 30%,var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent">
+      覚えながら答える</h1>
+    <div style="font-size:14px;color:var(--accent);margin-bottom:28px;font-weight:700">2-BACK TRAINING</div>
+
+    <div style="font-size:12px;letter-spacing:3px;color:var(--dim);margin-bottom:14px">SELECT LEVEL</div>
+    <div id="levelGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:24px"></div>
+
+    <div id="levelInfo" style="background:var(--surface);border-radius:14px;padding:18px;border:1px solid var(--border);margin-bottom:24px;font-size:13px;color:var(--dim);line-height:1.9"></div>
+
+    <div id="bestDisplay" style="font-size:12px;color:var(--dim);margin-bottom:14px;display:none">
+      <span style="color:#fbbf24">★</span> ベスト: <span id="bestVal"></span>%
+    </div>
+
+    <button class="btn btn-primary" onclick="startGame()">START</button>
+
+    <div style="margin-top:28px;padding:18px;border-radius:12px;background:rgba(255,255,255,0.02);border:1px solid var(--border);text-align:left">
+      <div style="font-size:11px;letter-spacing:2px;color:var(--dim);margin-bottom:12px;text-align:center">HOW TO PLAY</div>
+      <div style="font-size:13px;color:var(--dim);line-height:2">
+        <div><span style="color:var(--accent);margin-right:8px">▸</span>上部に<span style="color:var(--text)">新しい色付き数字</span>が表示</div>
+        <div><span style="color:var(--accent);margin-right:8px">▸</span>同時に<span style="color:var(--text)">2つ前</span>の色×数字を選択</div>
+        <div><span style="color:var(--accent);margin-right:8px">▸</span><span style="color:var(--missed)">記憶</span>と<span style="color:var(--correct)">回答</span>を同時にこなそう！</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ COUNTDOWN ══════════ -->
+<div id="countdown" class="screen">
+  <div id="cdNum" class="mono" style="font-size:clamp(72px,18vw,110px);font-weight:700;color:var(--accent);
+    text-shadow:0 0 40px var(--accent-glow);animation:pulse 0.7s ease-in-out infinite"></div>
+  <div style="font-size:13px;color:var(--dim);margin-top:12px;letter-spacing:4px">READY</div>
+</div>
+
+<!-- ══════════ PLAYING ══════════ -->
+<div id="playing" class="screen" style="justify-content:flex-start;padding:0">
+  <div style="width:100%;padding:14px 20px 0;display:flex;justify-content:space-between;align-items:center">
+    <div class="mono" style="background:var(--surface);border-radius:8px;padding:5px 12px;font-size:11px;color:var(--accent);font-weight:600;
+      border:1px solid rgba(129,140,248,0.2)">
+      Lv.<span id="playLevel"></span>
+    </div>
+    <div class="mono" style="font-size:12px;color:var(--dim)"><span id="playProgress"></span></div>
+  </div>
+  <div style="padding:10px 20px 0;width:100%">
+    <div style="height:3px;background:var(--surface2);border-radius:2px">
+      <div id="progressBar" style="height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent),#a78bfa);transition:width 0.3s;width:0%"></div>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 20px 24px;gap:20px;width:100%;max-width:420px;margin:0 auto">
+    <!-- current number display -->
+    <div id="showArea" style="display:flex;flex-direction:column;align-items:center">
+      <div id="showLabel" style="font-size:10px;letter-spacing:3px;color:var(--dim);margin-bottom:10px;text-transform:uppercase"></div>
+      <div id="showNum" style="width:100px;height:100px;border-radius:22px;display:flex;align-items:center;justify-content:center;
+        font-size:48px;font-weight:800;font-family:'Space Mono',monospace"></div>
+    </div>
+
+    <!-- timer -->
+    <div style="width:min(280px,70vw);height:3px;background:var(--surface2);border-radius:2px;overflow:hidden">
+      <div id="timeBar" style="height:100%;border-radius:2px;width:100%;transition:background 0.3s"></div>
+    </div>
+
+    <!-- choices or waiting -->
+    <div id="choiceArea" style="width:100%"></div>
+  </div>
+
+  <!-- flash overlay -->
+  <div id="flashOverlay" style="position:fixed;inset:0;pointer-events:none;z-index:200;display:none"></div>
+</div>
+
+<!-- ══════════ RESULTS ══════════ -->
+<div id="results" class="screen">
+  <div style="text-align:center;max-width:380px;width:100%">
+    <div style="font-size:11px;letter-spacing:4px;color:var(--dim);margin-bottom:20px">TRAINING COMPLETE</div>
+    <div id="gradeCircle" style="width:120px;height:120px;border-radius:50%;margin:0 auto 12px;
+      display:flex;align-items:center;justify-content:center;background:var(--surface)">
+      <div>
+        <div id="gradeLetter" style="font-size:40px;font-weight:800"></div>
+        <div id="gradeAcc" style="font-size:12px;color:var(--dim)"></div>
+      </div>
+    </div>
+    <div id="newBest" style="font-size:13px;color:#fbbf24;margin-bottom:4px;display:none">★ NEW BEST!</div>
+    <div id="scoreCards" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:24px 0"></div>
+    <div id="dotRow" class="result-dot-row"></div>
+    <div style="display:flex;gap:12px">
+      <button class="btn btn-primary" style="flex:1" onclick="startGame()">RETRY</button>
+      <button class="btn" style="flex:1;padding:14px;border-radius:12px;border:1px solid var(--border);
+        background:var(--surface);color:var(--text);font-size:14px;font-weight:600" onclick="saveAndGoHome()">ホームへ戻る</button>
+    </div>
+    <div style="margin-top:12px">
+      <button class="btn" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);
+        background:transparent;color:var(--dim);font-size:13px;font-weight:600" onclick="showScreen('menu')">MENU</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="game-utils.js"></script>
+
+<script>
+// ═══════════════════════════════════════
+// LEVEL CONFIG
+// ═══════════════════════════════════════
+const LEVELS = {
+  1: { time: 15, introTime: 8, rounds: 10, choices: 4, colors: 3, numbers: [1,2,3,4,5], label: "EASY" },
+  2: { time: 15, introTime: 8, rounds: 10, choices: 4, colors: 4, numbers: [1,2,3,4,5,6], label: "NORMAL" },
+  3: { time: 12, introTime: 6, rounds: 15, choices: 5, colors: 5, numbers: [1,2,3,4,5,6,7], label: "HARD" },
+  4: { time: 10, introTime: 6, rounds: 18, choices: 6, colors: 6, numbers: [1,2,3,4,5,6,7,8], label: "EXPERT" },
+  5: { time: 8,  introTime: 5, rounds: 20, choices: 6, colors: 8, numbers: [1,2,3,4,5,6,7,8,9], label: "MASTER" },
+};
+
+const ALL_COLORS = [
+  { name:"赤",   value:"#ef4444", bg:"rgba(239,68,68,0.13)",  border:"rgba(239,68,68,0.45)" },
+  { name:"青",   value:"#3b82f6", bg:"rgba(59,130,246,0.13)", border:"rgba(59,130,246,0.45)" },
+  { name:"緑",   value:"#22c55e", bg:"rgba(34,197,94,0.13)",  border:"rgba(34,197,94,0.45)" },
+  { name:"黄",   value:"#eab308", bg:"rgba(234,179,8,0.13)",  border:"rgba(234,179,8,0.45)" },
+  { name:"紫",   value:"#a855f7", bg:"rgba(168,85,247,0.13)", border:"rgba(168,85,247,0.45)" },
+  { name:"橙",   value:"#f97316", bg:"rgba(249,115,22,0.13)", border:"rgba(249,115,22,0.45)" },
+  { name:"水色", value:"#06b6d4", bg:"rgba(6,182,212,0.13)",  border:"rgba(6,182,212,0.45)" },
+  { name:"桃",   value:"#ec4899", bg:"rgba(236,72,153,0.13)", border:"rgba(236,72,153,0.45)" },
+];
+
+const N = 2;
+let currentLevel = 1;
+let bestScores = {};
+let seq = [];
+let step = -1;
+let choices = [];
+let selected = null;
+let answered = false;
+let resultsList = [];
+let roundTimer = null;
+let progInterval = null;
+let finalAcc = 0;
+
+// ═══════════════════════════════════════
+// SOUND
+// ═══════════════════════════════════════
+function snd(type) {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AC();
+    const mk = (freq, t="sine", dur=0.1, vol=0.09) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type=t; o.frequency.value=freq; g.gain.value=vol;
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+dur);
+      o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+dur);
+    };
+    if(type==="tick") mk(500,"sine",0.05);
+    else if(type==="correct"){ mk(523); setTimeout(()=>mk(659),70); setTimeout(()=>mk(784,"sine",0.15),140); }
+    else if(type==="wrong") mk(170,"sawtooth",0.22,0.07);
+    else if(type==="timeout") mk(300,"triangle",0.2,0.06);
+    else if(type==="go"){ mk(440); setTimeout(()=>mk(554),90); setTimeout(()=>mk(659,"sine",0.14),180); }
+  } catch(e){}
+}
+
+// ═══════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function getConf() { return LEVELS[currentLevel]; }
+
+function getColors() { return ALL_COLORS.slice(0, getConf().colors); }
+
+function genSeq() {
+  const c = getConf();
+  const cols = c.colors;
+  const nums = c.numbers;
+  const len = c.rounds + N;
+  const s = [];
+  for(let i=0; i<len; i++) {
+    s.push({ number: nums[Math.floor(Math.random()*nums.length)], colorIndex: Math.floor(Math.random()*cols) });
+  }
+  return s;
+}
+
+function genChoices(target) {
+  const c = getConf();
+  const cols = c.colors;
+  const nums = c.numbers;
+  const arr = [{ ...target, isCorrect:true }];
+  const used = new Set([`${target.number}-${target.colorIndex}`]);
+  while(arr.length < c.choices) {
+    const n = nums[Math.floor(Math.random()*nums.length)];
+    const ci = Math.floor(Math.random()*cols);
+    const k = `${n}-${ci}`;
+    if(!used.has(k)) { used.add(k); arr.push({number:n,colorIndex:ci,isCorrect:false}); }
+  }
+  for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]; }
+  return arr;
+}
+
+function gradeFor(a) {
+  if(a>=95) return {l:"S+",c:"#fbbf24"};
+  if(a>=85) return {l:"S",c:"#fbbf24"};
+  if(a>=75) return {l:"A",c:"#818cf8"};
+  if(a>=60) return {l:"B",c:"#3b82f6"};
+  if(a>=40) return {l:"C",c:"#fbbf24"};
+  return {l:"D",c:"#f87171"};
+}
+
+function flashScreen(type) {
+  const el = document.getElementById('flashOverlay');
+  const colors = { correct:"rgba(52,211,153,0.07)", incorrect:"rgba(248,113,113,0.07)", missed:"rgba(251,191,36,0.07)" };
+  el.style.background = colors[type] || colors.missed;
+  el.style.display = "block";
+  el.style.animation = "flash 0.5s ease forwards";
+  setTimeout(() => { el.style.display="none"; el.style.animation=""; }, 500);
+}
+
+// ═══════════════════════════════════════
+// MENU
+// ═══════════════════════════════════════
+function buildMenu() {
+  const grid = document.getElementById('levelGrid');
+  grid.innerHTML = '';
+  for(let lv=1; lv<=5; lv++) {
+    const card = document.createElement('div');
+    card.className = 'level-card' + (lv===currentLevel ? ' selected' : '');
+    card.innerHTML = `<div style="font-size:22px;font-weight:800;color:${lv===currentLevel?'var(--accent)':'var(--text)'}">${lv}</div>
+      <div style="font-size:9px;letter-spacing:1px;color:var(--dim);margin-top:2px">${LEVELS[lv].label}</div>`;
+    card.onclick = () => { currentLevel=lv; buildMenu(); };
+    grid.appendChild(card);
+  }
+  updateLevelInfo();
+  const b = bestScores[currentLevel];
+  const bd = document.getElementById('bestDisplay');
+  if(b != null) { bd.style.display='block'; document.getElementById('bestVal').textContent=b; }
+  else bd.style.display='none';
+}
+
+function updateLevelInfo() {
+  const c = getConf();
+  const el = document.getElementById('levelInfo');
+  const colPreviews = getColors().map(cl =>
+    `<span style="display:inline-block;width:18px;height:18px;border-radius:5px;background:${cl.bg};border:1.5px solid ${cl.border};vertical-align:middle;margin:0 2px"></span>`
+  ).join('');
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div>⏱ 制限時間 <span style="color:var(--text);font-weight:700">${c.time}秒</span>
+        <span style="font-size:11px;color:var(--dim)"> (最初${N}問: ${c.introTime}秒)</span></div>
+      <div>📝 設問 <span style="color:var(--text);font-weight:700">${c.rounds}問</span></div>
+    </div>
+    <div style="margin-top:8px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div>🎨 色数 <span style="color:var(--text);font-weight:700">${c.colors}色</span> ${colPreviews}</div>
+      <div>📋 選択肢 <span style="color:var(--text);font-weight:700">${c.choices}択</span></div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════
+// GAME FLOW
+// ═══════════════════════════════════════
+function startGame() {
+  snd("go");
+  seq = genSeq();
+  step = -1;
+  choices = [];
+  selected = null;
+  answered = false;
+  resultsList = [];
+  showScreen('countdown');
+  let cd = 3;
+  document.getElementById('cdNum').textContent = cd;
+  const cdi = setInterval(() => {
+    cd--;
+    if(cd <= 0) { clearInterval(cdi); showScreen('playing'); document.getElementById('playLevel').textContent=currentLevel; nextStep(); }
+    else { snd("tick"); document.getElementById('cdNum').textContent=cd; }
+  }, 700);
+}
+
+function nextStep() {
+  step++;
+  const c = getConf();
+  const totalRounds = c.rounds;
+
+  if(step >= seq.length) { showResults(); return; }
+
+  answered = false;
+  selected = null;
+
+  // progress
+  const answeredCount = resultsList.length;
+  document.getElementById('playProgress').textContent = `${answeredCount}/${totalRounds}`;
+  document.getElementById('progressBar').style.width = `${Math.round((answeredCount/totalRounds)*100)}%`;
+
+  // show current item
+  const item = seq[step];
+  const col = ALL_COLORS[item.colorIndex];
+  const showArea = document.getElementById('showArea');
+  showArea.className = 'pop';
+  setTimeout(()=>showArea.className='',300);
+
+  const hasChoices = step >= N;
+  document.getElementById('showLabel').textContent = hasChoices ? '覚えながら↓答えよう' : '覚えてください';
+
+  const numEl = document.getElementById('showNum');
+  numEl.style.background = col.bg;
+  numEl.style.border = `2.5px solid ${col.border}`;
+  numEl.style.boxShadow = `0 0 32px ${col.border}, 0 0 64px rgba(0,0,0,0.3)`;
+  numEl.style.color = col.value;
+  numEl.textContent = item.number;
+
+  snd("tick");
+
+  // choices
+  const choiceArea = document.getElementById('choiceArea');
+  if(hasChoices) {
+    const target = seq[step - N];
+    choices = genChoices(target);
+    renderChoices(choiceArea);
+  } else {
+    choiceArea.innerHTML = `<div class="slide" style="padding:14px 20px;border-radius:12px;background:var(--surface);
+      border:1px solid var(--border);font-size:12px;color:var(--dim);text-align:center">
+      あと ${N - step} 回で選択が始まります</div>`;
+  }
+
+  // timer
+  const isIntro = step < N;
+  const timeLimit = isIntro ? c.introTime : c.time;
+  const timeLimitMs = timeLimit * 1000;
+  const t0 = Date.now();
+  const timeBar = document.getElementById('timeBar');
+
+  progInterval = setInterval(() => {
+    const elapsed = Date.now() - t0;
+    const pct = Math.max(0, 100 - (elapsed/timeLimitMs)*100);
+    timeBar.style.width = pct + '%';
+    if(pct < 20) timeBar.style.background = 'var(--incorrect)';
+    else if(pct < 40) timeBar.style.background = 'var(--missed)';
+    else timeBar.style.background = 'var(--accent)';
+  }, 30);
+
+  roundTimer = setTimeout(() => {
+    clearInterval(progInterval);
+    if(!answered && hasChoices) {
+      snd("timeout");
+      resultsList.push(false);
+      flashScreen("missed");
+      // reveal correct
+      revealChoices(choiceArea, -1);
+      setTimeout(() => nextStep(), 900);
+    } else {
+      nextStep();
+    }
+  }, timeLimitMs);
+}
+
+function renderChoices(container) {
+  const cols = getConf().choices <= 4 ? 2 : 3;
+  let html = `<div class="slide" style="width:100%">
+    <div style="font-size:12px;color:var(--accent);text-align:center;margin-bottom:12px;font-weight:600">2つ前はどれ？</div>
+    <div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:10px">`;
+  choices.forEach((ch, i) => {
+    const cp = ALL_COLORS[ch.colorIndex];
+    html += `<button class="choice-btn" id="ch${i}" onclick="pickChoice(${i})" style="border:1.5px solid ${cp.border}">
+      <span style="font-size:28px;font-weight:800;color:${cp.value};font-family:'Space Mono',monospace">${ch.number}</span>
+      <span style="font-size:10px;color:${cp.value};opacity:0.6">${cp.name}</span>
+    </button>`;
+  });
+  html += '</div></div>';
+  container.innerHTML = html;
+}
+
+function pickChoice(idx) {
+  if(answered || selected !== null) return;
+  answered = true;
+  selected = idx;
+  clearTimeout(roundTimer);
+  clearInterval(progInterval);
+
+  const ch = choices[idx];
+  const ok = ch.isCorrect;
+  resultsList.push(ok);
+  if(ok) { snd("correct"); flashScreen("correct"); }
+  else { snd("wrong"); flashScreen("incorrect"); }
+
+  revealChoices(document.getElementById('choiceArea'), idx);
+  setTimeout(() => nextStep(), 900);
+}
+
+function revealChoices(container, selIdx) {
+  choices.forEach((ch, i) => {
+    const el = document.getElementById('ch'+i);
+    if(!el) return;
+    el.disabled = true;
+    const isRight = ch.isCorrect;
+    const isSel = i === selIdx;
+    if(isRight) {
+      el.style.border = '2px solid var(--correct)';
+      el.style.background = 'rgba(52,211,153,0.08)';
+      el.style.boxShadow = '0 0 14px rgba(52,211,153,0.25)';
+      el.innerHTML += '<span style="font-size:9px;color:var(--correct);font-weight:600">✓</span>';
+    } else if(isSel && !isRight) {
+      el.style.border = '2px solid var(--incorrect)';
+      el.style.background = 'rgba(248,113,113,0.08)';
+      el.innerHTML += '<span style="font-size:9px;color:var(--incorrect);font-weight:600">✗</span>';
+    } else {
+      el.style.opacity = '0.3';
+    }
+  });
+}
+
+function showResults() {
+  clearTimeout(roundTimer);
+  clearInterval(progInterval);
+
+  const correct = resultsList.filter(Boolean).length;
+  const total = resultsList.length;
+  const acc = total > 0 ? Math.round((correct/total)*100) : 0;
+  finalAcc = acc;
+  const wrong = total - correct;
+
+  const g = gradeFor(acc);
+  const gc = document.getElementById('gradeCircle');
+  gc.style.border = `3px solid ${g.c}`;
+  gc.style.boxShadow = `0 0 28px ${g.c}33`;
+  document.getElementById('gradeLetter').style.color = g.c;
+  document.getElementById('gradeLetter').textContent = g.l;
+  document.getElementById('gradeAcc').textContent = acc + '%';
+
+  const isBest = bestScores[currentLevel] == null || acc > bestScores[currentLevel];
+  if(isBest && acc > 0) bestScores[currentLevel] = acc;
+  document.getElementById('newBest').style.display = isBest && acc > 0 ? 'block' : 'none';
+
+  document.getElementById('scoreCards').innerHTML = `
+    <div style="background:var(--surface);border-radius:14px;padding:16px;border:1px solid var(--border)">
+      <div style="font-size:28px;font-weight:700;color:var(--correct)">${correct}</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:4px">正解</div>
+    </div>
+    <div style="background:var(--surface);border-radius:14px;padding:16px;border:1px solid var(--border)">
+      <div style="font-size:28px;font-weight:700;color:var(--incorrect)">${wrong}</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:4px">不正解</div>
+    </div>`;
+
+  document.getElementById('dotRow').innerHTML = resultsList.map(r =>
+    `<div class="dot" style="background:${r ? 'var(--correct)' : 'var(--incorrect)'};opacity:0.65"></div>`
+  ).join('');
+
+  showScreen('results');
+}
+
+function saveAndGoHome() {
+  finishGame('N-Back', finalAcc);
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+buildMenu();
+</script>
+</body>
+</html>

@@ -4,6 +4,7 @@ const GAMES = [
   { id: "divided-attention", name: "注意配分",   file: "game-divided-attention.html", color: "#d29922" },
   { id: "go-nogo",           name: "抑制課題",   file: "game-go-nogo.html",           color: "#f85149" },
   { id: "task-switching",    name: "ルール切替", file: "game-task-switching.html",    color: "#8b5cf6" },
+  { id: "nback",             name: "N-Back",    file: "game-nback.html",             color: "#818cf8" },
 ];
 
 // フィルターの現在選択値（null = すべて）
