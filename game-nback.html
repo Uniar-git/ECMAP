@@ -189,7 +189,7 @@
     <div style="display:flex;gap:12px">
       <button class="btn btn-primary" style="flex:1" onclick="startGame()">RETRY</button>
       <button class="btn" style="flex:1;padding:14px;border-radius:12px;border:1px solid var(--border);
-        background:var(--surface);color:var(--text);font-size:14px;font-weight:600" onclick="saveAndGoHome()">ホームへ戻る</button>
+        background:var(--surface);color:var(--text);font-size:14px;font-weight:600" onclick="location.href='index.html'">ホームへ戻る</button>
     </div>
     <div style="margin-top:12px">
       <button class="btn" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);
@@ -239,7 +239,6 @@ let answered = false;
 let resultsList = [];
 let roundTimer = null;
 let progInterval = null;
-let finalAcc = 0;
 
 // ═══════════════════════════════════════
 // SOUND
@@ -512,6 +511,31 @@ function revealChoices(container, selIdx) {
   });
 }
 
+// ゲーム終了時にFirestoreへ自動保存（リダイレクトなし）
+async function saveScore(acc) {
+  const doSave = async (user) => {
+    if (!user) return;
+    try {
+      await db.collection("results").add({
+        gameId:   "eSports-Training",
+        gameName: "N-Back",
+        score:    acc,
+        userId:   user.uid,
+        playedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (err) {
+      console.error("スコアの保存に失敗しました:", err);
+    }
+  };
+  if (auth.currentUser) {
+    await doSave(auth.currentUser);
+  } else {
+    await new Promise(resolve => {
+      const unsub = auth.onAuthStateChanged(user => { unsub(); doSave(user).then(resolve); });
+    });
+  }
+}
+
 function showResults() {
   clearTimeout(roundTimer);
   clearInterval(progInterval);
@@ -519,8 +543,10 @@ function showResults() {
   const correct = resultsList.filter(Boolean).length;
   const total = resultsList.length;
   const acc = total > 0 ? Math.round((correct/total)*100) : 0;
-  finalAcc = acc;
   const wrong = total - correct;
+
+  // ゲーム終了時に自動保存
+  saveScore(acc);
 
   const g = gradeFor(acc);
   const gc = document.getElementById('gradeCircle');
@@ -531,7 +557,7 @@ function showResults() {
   document.getElementById('gradeAcc').textContent = acc + '%';
 
   const isBest = bestScores[currentLevel] == null || acc > bestScores[currentLevel];
-  if(isBest && acc > 0) bestScores[currentLevel] = acc;
+  if (isBest && acc > 0) bestScores[currentLevel] = acc;
   document.getElementById('newBest').style.display = isBest && acc > 0 ? 'block' : 'none';
 
   document.getElementById('scoreCards').innerHTML = `
@@ -549,10 +575,6 @@ function showResults() {
   ).join('');
 
   showScreen('results');
-}
-
-function saveAndGoHome() {
-  finishGame('N-Back', finalAcc);
 }
 
 // ═══════════════════════════════════════
