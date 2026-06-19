@@ -32,16 +32,10 @@
       ECMAP
       <span>eSports Cognitive-Motor Assessment Platform</span>
     </div>
-    <div class="header-stats">
-      <div class="header-stat">
-        <div class="label">総プレイ回数</div>
-        <div class="value" id="total-plays">--</div>
-      </div>
-      <div class="header-stat">
-        <div class="label">ログイン中</div>
-        <div class="value" style="font-size:13px; color:var(--text-secondary);" id="user-email">--</div>
-      </div>
-      <button class="reset-btn" style="margin-top:0; align-self:center;" onclick="logout()">ログアウト</button>
+    <div class="header-actions">
+      <div class="header-user" id="user-email">--</div>
+      <button class="icon-btn" id="settings-btn" title="設定" aria-label="設定">⚙</button>
+      <button class="icon-btn" onclick="logout()" title="ログアウト" aria-label="ログアウト">⏻</button>
     </div>
   </header>
 
@@ -51,117 +45,48 @@
     <!-- エラーバナー -->
     <div class="error-banner" id="error-banner"></div>
 
-    <!-- ゲーム選択 -->
-    <section>
-      <div class="section-title">ゲームを選択</div>
-      <div class="games-grid">
-
-        <div class="game-card green">
-          <div class="game-card-header">
-            <div class="game-name">基本エイム</div>
-            <div class="game-badge badge-green">Baseline</div>
-          </div>
-          <div class="game-desc">認知負荷なしの純粋なエイム操作。基準となるパフォーマンスを測定します。</div>
-          <div class="game-meta">
-            <div class="best-score" id="best-basic-aim">ベスト: <span>--</span></div>
-            <button class="play-btn btn-green" onclick="location.href='game-basic-aim.html'">開始</button>
-          </div>
+    <!-- ===== ヒーロー: 今日のトレーニング ===== -->
+    <section class="hero">
+      <div class="hero-top">
+        <div class="hero-streak" id="hero-streak">
+          <span class="streak-icon">🔥</span>
+          <span class="streak-text">今週 <strong id="week-count">0</strong> / <span id="week-goal">3</span> 回</span>
         </div>
-
-        <div class="game-card orange">
-          <div class="game-card-header">
-            <div class="game-name">注意配分</div>
-            <div class="game-badge badge-orange">Divided Attention</div>
-          </div>
-          <div class="game-desc">中央のエイムを維持しながら周辺刺激にも反応する二重課題です。</div>
-          <div class="game-meta">
-            <div class="best-score" id="best-divided-attention">ベスト: <span>--</span></div>
-            <button class="play-btn btn-orange" onclick="location.href='game-divided-attention.html'">開始</button>
-          </div>
+        <div class="hero-streak-week" id="hero-streak-week" style="display:none;">
+          <span id="streak-weeks">0</span> 週連続達成中
         </div>
-
-        <div class="game-card red">
-          <div class="game-card-header">
-            <div class="game-name">抑制課題</div>
-            <div class="game-badge badge-red">Go / No-Go</div>
-          </div>
-          <div class="game-desc">撃ってよいターゲットと撃ってはいけないターゲットを判別し、衝動を抑制します。</div>
-          <div class="game-meta">
-            <div class="best-score" id="best-go-nogo">ベスト: <span>--</span></div>
-            <button class="play-btn btn-red" onclick="location.href='game-go-nogo.html'">開始</button>
-          </div>
-        </div>
-
-        <div class="game-card purple">
-          <div class="game-card-header">
-            <div class="game-name">ルール切替</div>
-            <div class="game-badge badge-purple">Task Switching</div>
-          </div>
-          <div class="game-desc">課題の途中でルールが変化します。認知的柔軟性への負荷を評価します。</div>
-          <div class="game-meta">
-            <div class="best-score" id="best-task-switching">ベスト: <span>--</span></div>
-            <button class="play-btn btn-purple" onclick="location.href='game-task-switching.html'">開始</button>
-          </div>
-        </div>
-
-        <div class="game-card" style="border-color: rgba(129,140,248,0.2);">
-          <div class="game-card-header">
-            <div class="game-name">N-Back</div>
-            <div class="game-badge" style="background:rgba(129,140,248,0.15);color:#818cf8;">2-Back Training</div>
-          </div>
-          <div class="game-desc">色付き数字を覚えながら2つ前を回答。記憶と反応を同時に鍛えるデュアルタスクです。<br><span style="font-size:10px;color:#818cf8;opacity:0.8;font-style:italic;">Based on Jaeggi et al. (2008) PNAS</span></div>
-          <div class="game-meta">
-            <div class="best-score" id="best-nback">ベスト: <span>--</span></div>
-            <button class="play-btn" style="background:#818cf8;color:#fff;" onclick="location.href='game-nback.html'">開始</button>
-          </div>
-        </div>
-
-        <div class="game-card" style="border-color: rgba(6,182,212,0.2);">
-          <div class="game-card-header">
-            <div class="game-name">MOT</div>
-            <div class="game-badge" style="background:rgba(6,182,212,0.15);color:#06b6d4;">Multi-Object Tracking</div>
-          </div>
-          <div class="game-desc">8個の球の中の4個を追跡。プロアスリートが顕著に優れる動的視覚学習能力を鍛えます。<br><span style="font-size:10px;color:#06b6d4;opacity:0.7;">2モード (論文準拠 / アスリート向け) + チュートリアル付き</span><br><span style="font-size:10px;color:#06b6d4;opacity:0.85;font-style:italic;">Based on Faubert (2013) Sci. Rep.</span></div>
-          <div class="game-meta">
-            <div class="best-score" id="best-mot">ベスト: <span>--</span></div>
-            <button class="play-btn" style="background:#06b6d4;color:#fff;" onclick="location.href='game-mot.html'">開始</button>
-          </div>
-        </div>
-
-        <div class="game-card" style="border-color: rgba(249,115,22,0.2);">
-          <div class="game-card-header">
-            <div class="game-name">予測タイミング</div>
-            <div class="game-badge" style="background:rgba(249,115,22,0.15);color:#f97316;">Anticipation Timing</div>
-          </div>
-          <div class="game-desc">遮蔽されたボールの到達時刻を初期軌道から予測。卓球など打撃スポーツの予測スキルを鍛えます。<br><span style="font-size:10px;color:#f97316;opacity:0.7;">2モード (古典 CAT / 卓球風応用 = DRIVE+SMASH) + チュートリアル付き</span><br><span style="font-size:10px;color:#f97316;opacity:0.85;font-style:italic;">Based on Müller &amp; Abernethy (2012) RQES</span></div>
-          <div class="game-meta">
-            <div class="best-score" id="best-cat">ベスト: <span>--</span></div>
-            <button class="play-btn" style="background:#f97316;color:#fff;" onclick="location.href='game-cat.html'">開始</button>
-          </div>
-        </div>
-
-        <div class="game-card" style="border-color: rgba(236,72,153,0.2);">
-          <div class="game-card-header">
-            <div class="game-name">UFOV</div>
-            <div class="game-badge" style="background:rgba(236,72,153,0.15);color:#ec4899;">Useful Field of View</div>
-          </div>
-          <div class="game-desc">中央課題と周辺ターゲットを同時把握。FPSの mini-map 確認や周辺敵検出に直結。<br><span style="font-size:10px;color:#ec4899;opacity:0.7;">2モード (論文準拠 = 固定SOA / 階段法 = 適応SOA) + チュートリアル付き</span><br><span style="font-size:10px;color:#ec4899;opacity:0.85;font-style:italic;">Based on Green &amp; Bavelier (2003) Nature</span></div>
-          <div class="game-meta">
-            <div class="best-score" id="best-ufov">ベスト: <span>--</span></div>
-            <button class="play-btn" style="background:#ec4899;color:#fff;" onclick="location.href='game-ufov.html'">開始</button>
-          </div>
-        </div>
-
       </div>
+
+      <div class="hero-copy" id="hero-copy">今日も1分だけ、はじめましょう。</div>
+
+      <div class="hero-card" id="hero-card">
+        <div class="hero-label">今日のトレーニング</div>
+        <div class="hero-game">
+          <div class="hero-game-dot" id="hero-game-dot"></div>
+          <div class="hero-game-name" id="hero-game-name">--</div>
+          <div class="hero-game-duration">約1分</div>
+        </div>
+        <button class="hero-start-btn" id="hero-start-btn">▶ はじめる</button>
+      </div>
+
+      <button class="hero-toggle" id="hero-toggle" aria-expanded="false">
+        他のトレーニングから選ぶ <span class="toggle-arrow">▼</span>
+      </button>
     </section>
 
-    <!-- ゲーム別統計 -->
+    <!-- ===== 簡素化グリッド（折りたたみ） ===== -->
+    <section class="games-section" id="games-section" hidden>
+      <div class="section-title">すべてのトレーニング</div>
+      <div class="games-grid" id="games-grid"></div>
+    </section>
+
+    <!-- ===== ゲーム別統計 ===== -->
     <section>
       <div class="section-title">ゲーム別統計</div>
       <div class="stats-grid" id="stats-grid"></div>
     </section>
 
-    <!-- ダッシュボード -->
+    <!-- ===== ダッシュボード ===== -->
     <section>
       <div class="section-title">パフォーマンス</div>
       <div class="dashboard-row">
@@ -186,6 +111,41 @@
     </section>
 
   </main>
+
+  <!-- ===== 設定モーダル ===== -->
+  <div class="modal-overlay" id="settings-modal" hidden>
+    <div class="modal" role="dialog" aria-labelledby="settings-title">
+      <div class="modal-header">
+        <div class="modal-title" id="settings-title">設定</div>
+        <button class="icon-btn" id="settings-close" aria-label="閉じる">✕</button>
+      </div>
+      <div class="modal-body">
+
+        <div class="setting-block">
+          <div class="setting-label">週の目標回数</div>
+          <div class="setting-desc">無理なく続けられる回数を選びましょう。</div>
+          <div class="goal-picker" id="goal-picker"></div>
+        </div>
+
+        <div class="setting-block">
+          <div class="setting-label">トレーニングの並び順</div>
+          <div class="setting-desc">上から順に曜日ごとのおすすめに使われます。ドラッグで並べ替え、トグルで除外できます。</div>
+          <ul class="rotation-list" id="rotation-list"></ul>
+        </div>
+
+        <div class="setting-block">
+          <div class="setting-label">通知時刻</div>
+          <div class="setting-desc">毎日この時刻に「今日のトレーニング」をリマインドします（実装予定）。</div>
+          <input type="time" id="notification-time" class="time-input">
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="ghost-btn" id="settings-cancel">キャンセル</button>
+        <button class="primary-btn" id="settings-save">保存</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
