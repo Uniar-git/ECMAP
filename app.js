@@ -5,6 +5,9 @@ const GAMES = [
   { id: "go-nogo",           name: "抑制課題",   file: "game-go-nogo.html",           color: "#f85149" },
   { id: "task-switching",    name: "ルール切替", file: "game-task-switching.html",    color: "#8b5cf6" },
   { id: "nback",             name: "N-Back",    file: "game-nback.html",             color: "#818cf8" },
+  { id: "mot",               name: "MOT",       file: "game-mot.html",               color: "#06b6d4" },
+  { id: "cat",               name: "CAT",       file: "game-cat.html",               color: "#f97316" },
+  { id: "ufov",              name: "UFOV",      file: "game-ufov.html",              color: "#ec4899" },
 ];
 
 // フィルターの現在選択値（null = すべて）

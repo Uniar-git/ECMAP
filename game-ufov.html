@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>UFOV - ECMAP</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@400;600;700;800;900&display=swap');
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --bg: #07080e;
+  --surface: #0f1219;
+  --surface2: #181d2a;
+  --border: rgba(255,255,255,0.06);
+  --text: #e4e8f0;
+  --dim: #4e566e;
+  --accent: #ec4899;
+  --accent-glow: rgba(236,72,153,0.3);
+  --correct: #34d399;
+  --incorrect: #f87171;
+}
+
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  min-height: 100vh; overflow-x: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.screen { display:none; min-height:100vh; flex-direction:column; align-items:center; padding:20px; position:relative; }
+.screen.active { display:flex; }
+
+.bg-glow {
+  position:fixed; inset:0; pointer-events:none; z-index:0;
+  background: radial-gradient(ellipse at 30% 20%, rgba(236,72,153,0.07) 0%, transparent 55%),
+              radial-gradient(ellipse at 75% 80%, rgba(168,85,247,0.05) 0%, transparent 50%);
+}
+
+.btn {
+  border:none; cursor:pointer; font-family:'Outfit',sans-serif;
+  transition: all 0.2s ease; outline:none;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: scale(0.97); }
+
+.btn-primary {
+  width:100%; padding:14px; border-radius:12px;
+  background: linear-gradient(135deg, var(--accent), #db2777);
+  color:#fff; font-size:15px; font-weight:700;
+  letter-spacing:2px; box-shadow: 0 4px 20px var(--accent-glow);
+}
+
+.btn-secondary {
+  width:100%; padding:12px; border-radius:12px;
+  background: var(--surface2); color: var(--text);
+  font-size:14px; font-weight:600;
+  border: 1px solid var(--border);
+}
+
+.back-btn {
+  position:fixed; top:14px; left:14px;
+  padding:8px 16px; border-radius:8px;
+  background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+  color:#8b949e; font-size:13px; font-weight:600; text-decoration:none;
+  z-index:300; transition:background 0.2s;
+}
+.back-btn:hover { background:rgba(255,255,255,0.1); }
+
+.card {
+  background: var(--surface); border-radius: 14px;
+  padding: 18px; border: 1px solid var(--border);
+  width: 100%; max-width: 460px;
+  z-index: 1; position: relative;
+}
+
+.title-large {
+  font-size: 36px; font-weight: 800; letter-spacing: 4px;
+  background: linear-gradient(135deg, var(--accent), #f9a8d4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  font-size: 11px; color: var(--dim);
+  letter-spacing: 1.5px; text-align: center;
+  margin-bottom: 8px;
+}
+
+.cite {
+  font-size: 10px; color: var(--accent); opacity: 0.8;
+  letter-spacing: 0.3px; text-align: center;
+  margin-bottom: 18px;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+#gameCanvas {
+  background: #050609;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: block;
+  touch-action: none;
+}
+
+.status-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  width: 100%; max-width: 480px;
+  margin-bottom: 12px;
+  padding: 10px;
+  background: var(--surface);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  gap: 4px;
+}
+
+.status-item { display: flex; flex-direction: column; align-items: center; }
+.status-item .label { font-size: 9px; color: var(--dim); letter-spacing: 1px; }
+.status-item .value { font-size: 15px; font-weight: 700; color: var(--accent); font-family: 'Space Mono', monospace; }
+
+.canvas-wrap {
+  position: relative;
+  width: 100%; max-width: 480px;
+  display: flex;
+  justify-content: center;
+  z-index: 1;
+}
+
+.answer-section {
+  width: 100%; max-width: 480px;
+  margin-top: 14px;
+  z-index: 1;
+}
+
+.answer-prompt {
+  font-size: 13px;
+  color: var(--accent);
+  text-align: center;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+
+.center-answer-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.answer-btn {
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--surface2);
+  color: var(--text);
+  border: 2px solid var(--border);
+  font-size: 22px;
+  font-weight: 800;
+  font-family: 'Space Mono', monospace;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.answer-btn:hover { border-color: var(--accent); }
+.answer-btn:active { transform: scale(0.96); }
+.answer-btn.correct { border-color: var(--correct); background: rgba(52,211,153,0.12); color: var(--correct); }
+.answer-btn.wrong   { border-color: var(--incorrect); background: rgba(248,113,113,0.12); color: var(--incorrect); }
+.answer-btn:disabled { cursor: default; opacity: 0.6; }
+
+.dir-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 6px;
+  width: 220px;
+  margin: 0 auto;
+}
+
+.dir-btn {
+  padding: 16px 0;
+  border-radius: 10px;
+  background: var(--surface2);
+  border: 2px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+.dir-btn:hover { border-color: var(--accent); }
+.dir-btn:active { transform: scale(0.94); }
+.dir-btn.placeholder { visibility: hidden; }
+.dir-btn.correct { border-color: var(--correct); background: rgba(52,211,153,0.12); color: var(--correct); }
+.dir-btn.wrong   { border-color: var(--incorrect); background: rgba(248,113,113,0.12); color: var(--incorrect); }
+.dir-btn:disabled { cursor: default; opacity: 0.6; }
+
+.grade-circle {
+  width: 120px; height: 120px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 16px auto;
+  background: var(--surface2);
+  flex-direction: column;
+}
+.grade-letter {
+  font-size: 56px; font-weight: 900;
+  font-family: 'Outfit', sans-serif;
+  line-height: 1;
+}
+
+.score-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; width: 100%;
+  margin-top: 10px;
+}
+.score-card {
+  background: var(--surface2); border-radius: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.score-card .v { font-size: 24px; font-weight: 700; color: var(--accent); font-family: 'Space Mono', monospace; }
+.score-card .l { font-size: 10px; color: var(--dim); margin-top: 4px; letter-spacing: 1px; }
+
+.dot-row {
+  display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;
+  margin: 14px 0 4px;
+}
+.dot { width: 11px; height: 11px; border-radius: 3px; }
+
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+.fade-in { animation: fadeIn 0.3s ease; }
+
+.btn-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; width: 100%;
+  margin-top: 14px;
+}
+
+.hidden { visibility: hidden; pointer-events: none; }
+
+.mode-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.mode-card {
+  background: var(--surface2);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'Outfit', sans-serif;
+  transition: all 0.15s ease;
+}
+.mode-card:hover { border-color: rgba(236,72,153,0.4); }
+.mode-card.selected {
+  border-color: var(--accent);
+  background: rgba(236,72,153,0.08);
+  box-shadow: 0 0 14px rgba(236,72,153,0.18);
+}
+.mode-card .mode-name { font-weight: 800; font-size: 14px; color: var(--text); letter-spacing: 1px; }
+.mode-card .mode-sub  { font-size: 10px; color: var(--accent); letter-spacing: 1px; margin-top: 3px; }
+.mode-card .mode-desc { font-size: 11px; color: var(--dim); margin-top: 8px; line-height: 1.5; }
+
+.tut-step-indicator {
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 1.5px;
+  text-align: center;
+  margin: 6px 0 10px;
+  font-weight: 700;
+}
+
+.tut-text {
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 1.65;
+  margin: 14px 0;
+  background: var(--surface);
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 480px;
+  z-index: 1;
+}
+.tut-text p { margin-bottom: 8px; }
+.tut-text p:last-child { margin-bottom: 0; }
+.tut-text strong { color: var(--accent); }
+
+.tut-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+  max-width: 480px;
+  margin-top: 8px;
+  z-index: 1;
+}
+
+.menu-btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 8px;
+}
+</style>
+</head>
+<body>
+
+<div class="bg-glow"></div>
+<a class="back-btn" href="index.html">← ホームへ戻る</a>
+
+<!-- ════════ MENU SCREEN ════════ -->
+<div id="screen-menu" class="screen active">
+  <div style="margin-top: 60px;"></div>
+  <div class="card fade-in">
+    <div class="title-large">UFOV</div>
+    <div class="subtitle">USEFUL FIELD OF VIEW</div>
+    <div class="cite">Based on Green &amp; Bavelier (2003), Nature<br>"Action video game modifies visual selective attention"</div>
+
+    <div style="font-size:13px; color:var(--text); line-height:1.7; margin-bottom:12px;">
+      <span style="color:var(--accent);font-weight:700">中央の文字 (X / O)</span> と
+      <span style="color:var(--accent);font-weight:700">周辺8方向のターゲット</span> が
+      ごく短い時間 (数十〜数百ms) だけ提示されます。
+      両方を同時に把握し、それぞれ正しく回答してください。
+    </div>
+
+    <div style="font-size:11px; font-weight:600; color:var(--accent); letter-spacing:1.5px; margin-bottom:8px;">SELECT MODE</div>
+
+    <div class="mode-cards">
+      <button class="mode-card" data-mode="STANDARD" onclick="selectMode('STANDARD')">
+        <div class="mode-name">STANDARD</div>
+        <div class="mode-sub">論文準拠</div>
+        <div class="mode-desc">
+          固定 SOA (偏心度別)<br>
+          内側 17ms / 外側 33ms<br>
+          スコア = 正答率 (%)
+        </div>
+      </button>
+      <button class="mode-card" data-mode="TRAINING" onclick="selectMode('TRAINING')">
+        <div class="mode-name">TRAINING</div>
+        <div class="mode-sub">階段法</div>
+        <div class="mode-desc">
+          適応的 SOA<br>
+          反転前×0.65→反転後×0.85<br>
+          スコア = 最短 SOA
+        </div>
+      </button>
+    </div>
+
+    <div class="menu-btn-row">
+      <button class="btn btn-secondary" onclick="startTutorial()">HOW TO PLAY</button>
+      <button class="btn btn-primary" id="startBtn" onclick="startGame()" disabled style="opacity:0.5;cursor:not-allowed;">モードを選択</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ TUTORIAL SCREEN ════════ -->
+<div id="screen-tutorial" class="screen">
+  <div style="font-size: 10px; color: var(--accent); opacity: 0.7; letter-spacing: 1px; margin-bottom: 4px; text-align: center;">
+    HOW TO PLAY &nbsp;·&nbsp; UFOV
+  </div>
+  <div class="tut-step-indicator" id="tutStepIndicator">STEP 1 / 3 — STIMULUS</div>
+
+  <div class="canvas-wrap">
+    <canvas id="tutCanvas"></canvas>
+  </div>
+
+  <div class="tut-text" id="tutText">
+    <!-- 動的に切り替え -->
+  </div>
+
+  <div class="tut-controls">
+    <button class="btn btn-secondary" onclick="endTutorial()">スキップ</button>
+    <button class="btn btn-primary" id="tutNextBtn" onclick="nextTutorialStep()">次へ →</button>
+  </div>
+</div>
+
+<!-- ════════ PLAY SCREEN ════════ -->
+<div id="screen-play" class="screen">
+  <div style="font-size: 10px; color: var(--accent); opacity: 0.7; letter-spacing: 1px; margin-bottom: 8px; text-align: center;">
+    UFOV &nbsp;·&nbsp; Green &amp; Bavelier (2003) Nature
+  </div>
+  <div class="status-bar">
+    <div class="status-item">
+      <div class="label">TRIAL</div>
+      <div class="value" id="status-trial">0/20</div>
+    </div>
+    <div class="status-item">
+      <div class="label">SOA (ms)</div>
+      <div class="value" id="status-soa">80</div>
+    </div>
+    <div class="status-item">
+      <div class="label">CENTER</div>
+      <div class="value" id="status-center">-</div>
+    </div>
+    <div class="status-item">
+      <div class="label">PERIPH</div>
+      <div class="value" id="status-periph">-</div>
+    </div>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <div class="answer-section" id="answerSection">
+    <div class="answer-prompt" id="answerPrompt">中央に何が出ましたか？</div>
+    <div class="center-answer-row" id="centerAnswers">
+      <button class="answer-btn" data-ans="X" onclick="onCenterAnswer('X')">X</button>
+      <button class="answer-btn" data-ans="O" onclick="onCenterAnswer('O')">O</button>
+    </div>
+    <div id="dirAnswers" style="display:none;">
+      <div class="dir-grid">
+        <button class="dir-btn" data-dir="NW" onclick="onDirAnswer('NW')">↖</button>
+        <button class="dir-btn" data-dir="N"  onclick="onDirAnswer('N')">↑</button>
+        <button class="dir-btn" data-dir="NE" onclick="onDirAnswer('NE')">↗</button>
+        <button class="dir-btn" data-dir="W"  onclick="onDirAnswer('W')">←</button>
+        <button class="dir-btn placeholder">·</button>
+        <button class="dir-btn" data-dir="E"  onclick="onDirAnswer('E')">→</button>
+        <button class="dir-btn" data-dir="SW" onclick="onDirAnswer('SW')">↙</button>
+        <button class="dir-btn" data-dir="S"  onclick="onDirAnswer('S')">↓</button>
+        <button class="dir-btn" data-dir="SE" onclick="onDirAnswer('SE')">↘</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ RESULT SCREEN ════════ -->
+<div id="screen-result" class="screen">
+  <div style="margin-top: 40px;"></div>
+  <div class="card fade-in">
+    <div class="title-large">RESULT</div>
+    <div class="cite">Based on Green &amp; Bavelier (2003), Nature</div>
+    <div style="text-align:center; font-size:11px; color:var(--accent); letter-spacing:1.5px; margin-bottom:6px; font-weight:600;" id="resultMode">—</div>
+
+    <div class="grade-circle" id="gradeCircle">
+      <div class="grade-letter" id="gradeLetter">A</div>
+      <div style="font-size:11px; color:var(--dim); margin-top:6px; letter-spacing:1px;" id="gradeScore">0 pt</div>
+    </div>
+
+    <div id="newBest" style="display:none; text-align:center; color:var(--accent); font-weight:700; margin-bottom:8px; font-size:13px; letter-spacing:2px;">★ NEW BEST</div>
+
+    <div class="score-grid">
+      <div class="score-card">
+        <div class="v" id="rScore">0</div>
+        <div class="l" id="rScoreLabel">SCORE</div>
+      </div>
+      <div class="score-card">
+        <div class="v" id="rAvgSoa">0</div>
+        <div class="l" id="rAvgSoaLabel">AVG SOA (ms)</div>
+      </div>
+      <div class="score-card">
+        <div class="v" id="rMinSoa">0</div>
+        <div class="l" id="rMinSoaLabel">MIN SOA (ms)</div>
+      </div>
+      <div class="score-card">
+        <div class="v" id="rPerfect">0</div>
+        <div class="l" id="rPerfectLabel">DUAL CORRECT</div>
+      </div>
+    </div>
+
+    <div class="dot-row" id="dotRow"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="location.href='index.html'">ホーム</button>
+      <button class="btn btn-primary" onclick="restartGame()">もう一度</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  UFOV (Useful Field of View)
+//  Based on: Green, C.S. & Bavelier, D. (2003). Action video
+//  game modifies visual selective attention. Nature, 423, 534-537.
+//
+//  中央同時課題 + 周辺ターゲット位置同定の二重課題。
+//  Action gamer は周辺視野での選択的空間注意が優れる。
+// ══════════════════════════════════════════
+
+// ── Modes ──
+// STANDARD: Green & Bavelier (2003) Exp 3 準拠
+//   "6 ms for targets at 10°; 12 ms for targets at 20°/30°"
+//   実装上は 60Hz の整数フレームに丸めて 17ms (1f) / 33ms (2f) を使用
+//   全trial 同条件、スコアは accuracy (%)
+// TRAINING: 階段法（個人閾値追跡、アスリート向け）
+const MODES = {
+  STANDARD: {
+    name: 'STANDARD',
+    type: 'fixed',
+    numTrials: 20,
+    eccOptions: [0.50, 0.70, 0.92],
+    soaForEcc: (ecc) => (ecc < 0.6 ? 17 : 33),
+  },
+  TRAINING: {
+    name: 'TRAINING',
+    type: 'staircase',
+    numTrials: 20,
+    scoreLastN: 10,
+    eccOptions: [0.65, 0.80, 0.92],
+    soaInitial: 80,
+    soaDownLarge: 0.65,
+    soaUpLarge: 1.54,
+    soaDownSmall: 0.85,
+    soaUpSmall: 1.18,
+    soaMin: 20,
+    soaMax: 500,
+  },
+};
+let currentMode = null;
+
+const FIX_MS = 700;
+const MASK_MS = 250;
+const FEEDBACK_MS = 800;
+
+const DIRS = [
+  { name: 'E',  angle:    0 },
+  { name: 'SE', angle:   45 },
+  { name: 'S',  angle:   90 },
+  { name: 'SW', angle:  135 },
+  { name: 'W',  angle:  180 },
+  { name: 'NW', angle: -135 },
+  { name: 'N',  angle:  -90 },
+  { name: 'NE', angle:  -45 },
+];
+
+let canvas, ctx, dpr = 1;
+let canvasW = 0, canvasH = 0;
+let phase = 'menu'; // menu | fix | stim | mask | ans-center | ans-periph | feedback | done
+let trialNum = 0;
+let trial = null;
+let trialResults = []; // [{ soa, centerOk, periphOk, ecc }]
+let soaCurrent = 80;
+let reversalsCount = 0;
+let lastDualOk = null;
+
+let centerAnswer = null;
+let periphAnswer = null;
+
+let animId = null;
+
+let bestScore = parseInt(localStorage.getItem('ufov-best') || '0', 10);
+
+function setupCanvas() {
+  canvas = document.getElementById('gameCanvas');
+  ctx = canvas.getContext('2d');
+  const padX = 32;
+  const reservedH = 360; // for status + answer section
+  const maxW = Math.min(window.innerWidth - padX, 480);
+  const maxH = Math.max(280, window.innerHeight - reservedH);
+  let size = Math.min(maxW, maxH);
+  size = Math.floor(size);
+  canvasW = size;
+  canvasH = size;
+
+  dpr = window.devicePixelRatio || 1;
+  canvas.style.width = canvasW + 'px';
+  canvas.style.height = canvasH + 'px';
+  canvas.width = Math.floor(canvasW * dpr);
+  canvas.height = Math.floor(canvasH * dpr);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(dpr, dpr);
+}
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function rand(a,b) { return a + Math.random()*(b-a); }
+
+// ── Tutorial ──
+let tutCanvas = null, tutCtx = null;
+let tutW = 0, tutH = 0;
+let tutorialStep = 0;
+
+const TUT_STEPS = [
+  {
+    title: 'STEP 1 / 3 — STIMULUS',
+    html: '<p>中央に <strong>X</strong> または <strong>O</strong> が出現すると同時に、周辺 <strong>8 方向</strong> のうち <strong>1 つ</strong>にターゲット (円輪郭の中に小さな △) が現れます。残り 7 方向には四角 (□) のディストラクタが配置されます。</p><p>あなたの仕事は <strong>中央の文字</strong> と <strong>ターゲットの方向</strong> を同時に把握することです。</p>',
+    draw: drawTutStimulus,
+  },
+  {
+    title: 'STEP 2 / 3 — MASK',
+    html: '<p>刺激は数十ミリ秒で消え、直後に <strong>マスク</strong> が全方向に表示されます。マスクは円・四角・三角を重ねた形状で、残像から答えを読み取れないように上書きします。</p>',
+    draw: drawTutMask,
+  },
+  {
+    title: 'STEP 3 / 3 — ANSWER',
+    html: '<p>マスクの後、まず <strong>中央課題</strong> (X か O) を回答し、続いて <strong>周辺課題</strong> (8 方向のどこにターゲットが出たか) を回答します。</p><p>STANDARD モードでは刺激は <strong>17 ms または 33 ms</strong> しか提示されません。集中して開始してください。</p>',
+    draw: drawTutReady,
+  },
+];
+
+function setupTutCanvas() {
+  tutCanvas = document.getElementById('tutCanvas');
+  tutCtx = tutCanvas.getContext('2d');
+
+  const padX = 32;
+  const reservedH = 360;
+  const maxW = Math.min(window.innerWidth - padX, 480);
+  const maxH = Math.max(280, window.innerHeight - reservedH);
+  let size = Math.floor(Math.min(maxW, maxH));
+  tutW = size;
+  tutH = size;
+
+  const dpr = window.devicePixelRatio || 1;
+  tutCanvas.style.width = tutW + 'px';
+  tutCanvas.style.height = tutH + 'px';
+  tutCanvas.width = Math.floor(tutW * dpr);
+  tutCanvas.height = Math.floor(tutH * dpr);
+  tutCtx.setTransform(1, 0, 0, 1, 0, 0);
+  tutCtx.scale(dpr, dpr);
+}
+
+// 既存の draw* 関数を tutorial canvas で使うために、ctx/canvas を一時的に swap
+function withTutCtx(fn) {
+  const oldCanvas = canvas, oldCtx = ctx, oldW = canvasW, oldH = canvasH;
+  canvas = tutCanvas; ctx = tutCtx;
+  canvasW = tutW; canvasH = tutH;
+  fn();
+  canvas = oldCanvas; ctx = oldCtx;
+  canvasW = oldW; canvasH = oldH;
+}
+
+function startTutorial() {
+  setupTutCanvas();
+  tutorialStep = 0;
+  showScreen('tutorial');
+  renderTutorialStep();
+}
+
+function nextTutorialStep() {
+  tutorialStep++;
+  if (tutorialStep >= TUT_STEPS.length) {
+    endTutorial();
+    return;
+  }
+  renderTutorialStep();
+}
+
+function endTutorial() {
+  showScreen('menu');
+}
+
+function renderTutorialStep() {
+  const step = TUT_STEPS[tutorialStep];
+  document.getElementById('tutStepIndicator').textContent = step.title;
+  document.getElementById('tutText').innerHTML = step.html;
+  // 最終ステップではボタンラベルを変更
+  const btn = document.getElementById('tutNextBtn');
+  btn.textContent = tutorialStep === TUT_STEPS.length - 1 ? '完了 →' : '次へ →';
+  step.draw();
+}
+
+// ── Tutorial drawings ──
+function drawTutStimulus() {
+  withTutCtx(() => {
+    ctx.clearRect(0, 0, canvasW, canvasH);
+    drawBackground();
+    const cx = canvasW/2, cy = canvasH/2;
+    const eccPx = (canvasW/2 - 32) * 0.78;
+
+    // 中央 (X 固定)
+    const boxSize = 38;
+    ctx.fillStyle = 'rgba(236,72,153,0.08)';
+    ctx.fillRect(cx - boxSize/2, cy - boxSize/2, boxSize, boxSize);
+    ctx.strokeStyle = 'rgba(236,72,153,0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(cx - boxSize/2, cy - boxSize/2, boxSize, boxSize);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 26px "Space Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('X', cx, cy + 1);
+
+    // ターゲット位置 (右上 NE) と全ディストラクタ
+    const targetDir = DIRS.find(d => d.name === 'NE');
+    const targetPos = angleToXY(targetDir.angle, eccPx, cx, cy);
+
+    const distractors = DIRS.filter(d => d.name !== targetDir.name);
+    for (const d of distractors) {
+      const p = angleToXY(d.angle, eccPx, cx, cy);
+      drawDistractorAt(p.x, p.y);
+    }
+    drawTargetAt(targetPos.x, targetPos.y);
+
+    // ターゲット強調 (緑リング + ラベル)
+    ctx.strokeStyle = '#34d399';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(targetPos.x, targetPos.y, 24, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = '#34d399';
+    ctx.font = '700 11px "Outfit", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('TARGET', targetPos.x + 30, targetPos.y - 6);
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '500 9px "Outfit", sans-serif';
+    ctx.fillText('円の中に△', targetPos.x + 30, targetPos.y + 7);
+
+    // ディストラクタ1つにラベル (W 方向)
+    const labelDir = DIRS.find(d => d.name === 'W');
+    const lp = angleToXY(labelDir.angle, eccPx, cx, cy);
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '500 10px "Outfit", sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('distractor (□)', lp.x - 24, lp.y);
+
+    // 「8方向のどこか」ヒント (薄い円)
+    ctx.strokeStyle = 'rgba(236,72,153,0.18)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, eccPx, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+}
+
+function drawTutMask() {
+  withTutCtx(() => {
+    ctx.clearRect(0, 0, canvasW, canvasH);
+    drawBackground();
+    const cx = canvasW/2, cy = canvasH/2;
+    const eccPx = (canvasW/2 - 32) * 0.78;
+
+    // 中央マスク (drawMask の中央部と同じ)
+    const boxSize = 38;
+    ctx.fillStyle = '#1f2937';
+    ctx.fillRect(cx - boxSize/2, cy - boxSize/2, boxSize, boxSize);
+    ctx.strokeStyle = '#9ca3af';
+    ctx.lineWidth = 2;
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.moveTo(cx - boxSize/2, cy + i*8);
+      ctx.lineTo(cx + boxSize/2, cy + i*8);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(236,72,153,0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(cx - boxSize/2, cy - boxSize/2, boxSize, boxSize);
+
+    // 周辺マスク
+    for (const d of DIRS) {
+      const p = angleToXY(d.angle, eccPx, cx, cy);
+      drawStructureMaskAt(p.x, p.y);
+    }
+  });
+}
+
+function drawTutReady() {
+  withTutCtx(() => {
+    ctx.clearRect(0, 0, canvasW, canvasH);
+    drawBackground();
+    const cx = canvasW/2, cy = canvasH/2;
+
+    // 大きな READY 文字
+    ctx.fillStyle = 'rgba(236,72,153,0.85)';
+    ctx.font = '900 44px "Outfit", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('READY', cx, cy - 14);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = '500 13px "Outfit", sans-serif';
+    ctx.fillText('刺激は瞬時に消えます', cx, cy + 20);
+
+    ctx.fillStyle = '#34d399';
+    ctx.font = '600 11px "Space Mono", monospace';
+    ctx.fillText('STANDARD: 17ms / 33ms', cx, cy + 44);
+  });
+}
+
+// ── Mode selection ──
+function selectMode(name) {
+  currentMode = MODES[name];
+  document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+  const sel = document.querySelector(`[data-mode="${name}"]`);
+  if (sel) sel.classList.add('selected');
+  const btn = document.getElementById('startBtn');
+  if (btn) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    btn.textContent = '開始';
+  }
+}
+
+// ── Trial setup ──
+function makeTrial() {
+  // 中央課題: X か O
+  const centerChar = Math.random() < 0.5 ? 'X' : 'O';
+
+  // 周辺ターゲット方向 (1個)
+  const targetDir = pick(DIRS);
+
+  // Eccentricity: モードごとに設定
+  const ecc = pick(currentMode.eccOptions);
+
+  // ディストラクタ: 残り7方向すべてに同形ディストラクタを配置（最大密度）
+  const distractors = DIRS.filter(d => d.name !== targetDir.name);
+
+  // SOA: モードごとに決定
+  let soa;
+  if (currentMode.type === 'fixed') {
+    soa = currentMode.soaForEcc(ecc);
+  } else {
+    soa = Math.round(soaCurrent);
+  }
+
+  return { centerChar, targetDir, ecc, distractors, soa };
+}
+
+function angleToXY(angleDeg, eccPx, cx, cy) {
+  const rad = angleDeg * Math.PI / 180;
+  return { x: cx + Math.cos(rad) * eccPx, y: cy + Math.sin(rad) * eccPx };
+}
+
+// ── Drawing ──
+function drawFixation() {
+  ctx.clearRect(0, 0, canvasW, canvasH);
+  drawBackground();
+  // central +
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 2;
+  const cx = canvasW/2, cy = canvasH/2;
+  ctx.beginPath(); ctx.moveTo(cx-8, cy); ctx.lineTo(cx+8, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy-8); ctx.lineTo(cx, cy+8); ctx.stroke();
+}
+
+function drawBackground() {
+  // very subtle radial frame
+  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+  ctx.lineWidth = 1;
+  const cx = canvasW/2, cy = canvasH/2;
+  for (const r of [0.3, 0.55, 0.75]) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * canvasW/2, 0, Math.PI*2);
+    ctx.stroke();
+  }
+}
+
+function drawStimulus() {
+  ctx.clearRect(0, 0, canvasW, canvasH);
+  drawBackground();
+  const cx = canvasW/2, cy = canvasH/2;
+  const eccPx = (canvasW/2 - 32) * trial.ecc;
+
+  // central character with outlined box
+  const boxSize = 38;
+  ctx.fillStyle = 'rgba(236,72,153,0.08)';
+  ctx.fillRect(cx - boxSize/2, cy - boxSize/2, boxSize, boxSize);
+  ctx.strokeStyle = 'rgba(236,72,153,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(cx - boxSize/2, cy - boxSize/2, boxSize, boxSize);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 26px "Space Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(trial.centerChar, cx, cy + 1);
+
+  // peripheral target: 円輪郭 + 内部の小さな三角
+  // (Green & Bavelier 2003 Fig. 3a 準拠: filled triangle within a circle outline)
+  const tp = angleToXY(trial.targetDir.angle, eccPx, cx, cy);
+  drawTargetAt(tp.x, tp.y);
+
+  // distractor: 同サイズの四角輪郭（白系で同色 → ターゲットと混同しやすい）
+  for (const d of trial.distractors) {
+    const p = angleToXY(d.angle, eccPx, cx, cy);
+    drawDistractorAt(p.x, p.y);
+  }
+}
+
+// ターゲット: 円の輪郭 + 内部に小さな三角
+// (Green & Bavelier 2003 Fig. 3a: "filled triangle within a 3°×3° circle outline")
+function drawTargetAt(x, y) {
+  const r = 14;
+  ctx.strokeStyle = '#e4e8f0';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = '#e4e8f0';
+  const ts = 5;
+  ctx.beginPath();
+  ctx.moveTo(x, y - ts);
+  ctx.lineTo(x + ts * 0.866, y + ts * 0.5);
+  ctx.lineTo(x - ts * 0.866, y + ts * 0.5);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// ディストラクタ: 同サイズの四角輪郭 + 中央点（ターゲット円と紛らわしい同色）
+function drawDistractorAt(x, y) {
+  const s = 26;
+  ctx.strokeStyle = '#e4e8f0';
+  ctx.lineWidth = 1.6;
+  ctx.strokeRect(x - s / 2, y - s / 2, s, s);
+  ctx.fillStyle = '#e4e8f0';
+  ctx.beginPath();
+  ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawMask() {
+  ctx.clearRect(0, 0, canvasW, canvasH);
+  drawBackground();
+  const cx = canvasW/2, cy = canvasH/2;
+  const eccPx = (canvasW/2 - 32) * trial.ecc;
+
+  // center mask
+  const boxSize = 38;
+  ctx.fillStyle = '#1f2937';
+  ctx.fillRect(cx - boxSize/2, cy - boxSize/2, boxSize, boxSize);
+  // hatched lines as mask
+  ctx.strokeStyle = '#9ca3af';
+  ctx.lineWidth = 2;
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath();
+    ctx.moveTo(cx - boxSize/2, cy + i*8);
+    ctx.lineTo(cx + boxSize/2, cy + i*8);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(236,72,153,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(cx - boxSize/2, cy - boxSize/2, boxSize, boxSize);
+
+  // peripheral masks: structure mask（円・四角・三角の重ね合わせで形状情報を消す）
+  for (const d of DIRS) {
+    const p = angleToXY(d.angle, eccPx, cx, cy);
+    drawStructureMaskAt(p.x, p.y);
+  }
+}
+
+// バックワードマスク: ターゲット形状とディストラクタ形状の両方を含み、
+// 残像から形状情報を読み取れないようにする
+function drawStructureMaskAt(x, y) {
+  ctx.strokeStyle = '#e4e8f0';
+  ctx.lineWidth = 1.4;
+  // 円
+  ctx.beginPath();
+  ctx.arc(x, y, 14, 0, Math.PI * 2);
+  ctx.stroke();
+  // 四角（45°回転）
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(Math.PI / 4);
+  ctx.strokeRect(-12, -12, 24, 24);
+  ctx.restore();
+  // 中央三角
+  ctx.fillStyle = '#e4e8f0';
+  const ts = 5;
+  ctx.beginPath();
+  ctx.moveTo(x, y - ts);
+  ctx.lineTo(x + ts * 0.866, y + ts * 0.5);
+  ctx.lineTo(x - ts * 0.866, y + ts * 0.5);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawFeedback() {
+  ctx.clearRect(0, 0, canvasW, canvasH);
+  drawBackground();
+  const cx = canvasW/2, cy = canvasH/2;
+  const eccPx = (canvasW/2 - 32) * trial.ecc;
+
+  // 中央
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 26px "Space Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(trial.centerChar, cx, cy + 1);
+
+  // 正解の周辺ターゲットを強調
+  const tp = angleToXY(trial.targetDir.angle, eccPx, cx, cy);
+  ctx.beginPath();
+  ctx.arc(tp.x, tp.y, 22, 0, Math.PI*2);
+  ctx.strokeStyle = '#34d399';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // 正解位置にターゲットマーカー（緑のドット）
+  ctx.fillStyle = '#34d399';
+  ctx.beginPath();
+  ctx.arc(tp.x, tp.y, 6, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// ── Animation ──
+function tick() {
+  if (phase === 'fix')  drawFixation();
+  if (phase === 'stim') drawStimulus();
+  if (phase === 'mask') drawMask();
+  if (phase === 'ans-center' || phase === 'ans-periph') drawMask();
+  if (phase === 'feedback') drawFeedback();
+  animId = requestAnimationFrame(tick);
+}
+
+// ── Game Flow ──
+function startGame() {
+  if (!currentMode) return;
+  setupCanvas();
+  trialNum = 0;
+  trialResults = [];
+  soaCurrent = currentMode.type === 'staircase' ? currentMode.soaInitial : 80;
+  reversalsCount = 0;
+  lastDualOk = null;
+  // ステータスバー初期表示更新
+  document.getElementById('status-trial').textContent = `0/${currentMode.numTrials}`;
+  document.getElementById('status-soa').textContent = currentMode.type === 'staircase'
+    ? Math.round(currentMode.soaInitial) : '—';
+  showScreen('play');
+  setTimeout(() => {
+    setupCanvas();
+    if (!animId) animId = requestAnimationFrame(tick);
+    nextTrial();
+  }, 50);
+}
+
+function restartGame() { startGame(); }
+
+function nextTrial() {
+  trialNum++;
+  if (trialNum > currentMode.numTrials) {
+    finishSession();
+    return;
+  }
+  trial = makeTrial();
+  centerAnswer = null;
+  periphAnswer = null;
+  resetAnswerButtons();
+  hideAnswers();
+  updateStatus();
+
+  phase = 'fix';
+  setTimeout(() => {
+    phase = 'stim';
+    setTimeout(() => {
+      phase = 'mask';
+      setTimeout(() => {
+        // 回答フェーズ: 中央課題から
+        phase = 'ans-center';
+        showCenterAnswers();
+      }, MASK_MS);
+    }, trial.soa);
+  }, FIX_MS);
+}
+
+function showCenterAnswers() {
+  document.getElementById('answerSection').classList.remove('hidden');
+  document.getElementById('answerPrompt').textContent = '中央に何が出ましたか？';
+  document.getElementById('centerAnswers').style.display = 'grid';
+  document.getElementById('dirAnswers').style.display = 'none';
+}
+
+function showPeriphAnswers() {
+  document.getElementById('answerPrompt').textContent = 'ターゲット (▲) はどの方向？';
+  document.getElementById('centerAnswers').style.display = 'none';
+  document.getElementById('dirAnswers').style.display = 'block';
+}
+
+function hideAnswers() {
+  document.getElementById('answerSection').classList.add('hidden');
+}
+
+function resetAnswerButtons() {
+  document.querySelectorAll('#centerAnswers .answer-btn').forEach(b => {
+    b.classList.remove('correct', 'wrong');
+    b.disabled = false;
+  });
+  document.querySelectorAll('#dirAnswers .dir-btn').forEach(b => {
+    b.classList.remove('correct', 'wrong');
+    b.disabled = false;
+  });
+}
+
+function onCenterAnswer(ans) {
+  if (phase !== 'ans-center') return;
+  centerAnswer = ans;
+  // ボタンの色を更新
+  document.querySelectorAll('#centerAnswers .answer-btn').forEach(b => {
+    b.disabled = true;
+    const a = b.getAttribute('data-ans');
+    if (a === trial.centerChar) b.classList.add('correct');
+    else if (a === ans) b.classList.add('wrong');
+  });
+  setTimeout(() => {
+    phase = 'ans-periph';
+    showPeriphAnswers();
+  }, 350);
+}
+
+function onDirAnswer(dir) {
+  if (phase !== 'ans-periph') return;
+  periphAnswer = dir;
+  // ボタンの色を更新
+  document.querySelectorAll('#dirAnswers .dir-btn').forEach(b => {
+    b.disabled = true;
+    const a = b.getAttribute('data-dir');
+    if (!a) return;
+    if (a === trial.targetDir.name) b.classList.add('correct');
+    else if (a === dir) b.classList.add('wrong');
+  });
+
+  // 結果記録 + 階段法
+  const centerOk = (centerAnswer === trial.centerChar);
+  const periphOk = (periphAnswer === trial.targetDir.name);
+  const dualOk = centerOk && periphOk;
+
+  trialResults.push({
+    soa: trial.soa,
+    ecc: trial.ecc,
+    centerOk, periphOk, dualOk,
+  });
+
+  // 階段法モードのみ SOA を更新
+  if (currentMode.type === 'staircase') {
+    if (lastDualOk !== null && lastDualOk !== dualOk) {
+      reversalsCount++;
+    }
+    lastDualOk = dualOk;
+    const useSmallStep = reversalsCount >= 1;
+    if (dualOk) soaCurrent *= (useSmallStep ? currentMode.soaDownSmall : currentMode.soaDownLarge);
+    else        soaCurrent *= (useSmallStep ? currentMode.soaUpSmall : currentMode.soaUpLarge);
+    soaCurrent = Math.max(currentMode.soaMin, Math.min(currentMode.soaMax, soaCurrent));
+  }
+
+  updateStatus();
+
+  // フィードバック
+  phase = 'feedback';
+  setTimeout(() => nextTrial(), FEEDBACK_MS);
+}
+
+function updateStatus() {
+  const total = currentMode ? currentMode.numTrials : 20;
+  document.getElementById('status-trial').textContent = `${Math.min(trialNum, total)}/${total}`;
+  // SOA 表示: STANDARD は trial の固定値、TRAINING は soaCurrent
+  if (currentMode && currentMode.type === 'staircase') {
+    document.getElementById('status-soa').textContent = Math.round(soaCurrent);
+  } else if (trial) {
+    document.getElementById('status-soa').textContent = trial.soa;
+  } else {
+    document.getElementById('status-soa').textContent = '—';
+  }
+  if (trialResults.length > 0) {
+    const last = trialResults[trialResults.length - 1];
+    document.getElementById('status-center').textContent = last.centerOk ? '✓' : '✗';
+    document.getElementById('status-periph').textContent = last.periphOk ? '✓' : '✗';
+  } else {
+    document.getElementById('status-center').textContent = '-';
+    document.getElementById('status-periph').textContent = '-';
+  }
+}
+
+function finishSession() {
+  if (animId) { cancelAnimationFrame(animId); animId = null; }
+  phase = 'done';
+
+  let score, label1, val1, label2, val2, label3, val3, label4, val4;
+  let bestKey;
+
+  if (currentMode.type === 'fixed') {
+    // ── STANDARD (Green & Bavelier 2003 準拠) ──
+    // スコア = 全 trial の正答率 (%)
+    const dualCorrect = trialResults.filter(t => t.dualOk).length;
+    const accuracy = trialResults.length > 0
+      ? (dualCorrect / trialResults.length) * 100 : 0;
+    score = Math.round(accuracy);
+
+    // 偏心度別の正答率
+    const inner  = trialResults.filter(t => t.ecc < 0.6);
+    const outer  = trialResults.filter(t => t.ecc >= 0.85);
+    const middle = trialResults.filter(t => t.ecc >= 0.6 && t.ecc < 0.85);
+    const accFor = (arr) => arr.length === 0 ? '—'
+      : Math.round((arr.filter(t => t.dualOk).length / arr.length) * 100) + '%';
+
+    label1 = 'SCORE';      val1 = score;
+    label2 = 'ACCURACY';   val2 = score + '%';
+    label3 = 'INNER ACC';  val3 = accFor(inner);
+    label4 = 'OUTER ACC';  val4 = accFor(outer);
+    bestKey = 'ufov-best-standard';
+  } else {
+    // ── TRAINING (階段法) ──
+    const N = currentMode.scoreLastN || 10;
+    const last = trialResults.slice(-N);
+    let sumLog = 0, count = 0;
+    for (const t of last) {
+      sumLog += Math.log(t.soa);
+      count++;
+    }
+    const avgSoa = count > 0 ? Math.round(Math.exp(sumLog / count)) : 200;
+    const minSoa = Math.min(...trialResults.map(t => t.soa));
+    const dualCorrect = trialResults.filter(t => t.dualOk).length;
+    score = Math.max(0, Math.round((200 - avgSoa) * 0.6));
+
+    label1 = 'SCORE';        val1 = score;
+    label2 = 'AVG SOA (ms)'; val2 = avgSoa;
+    label3 = 'MIN SOA (ms)'; val3 = minSoa;
+    label4 = 'DUAL CORRECT'; val4 = `${dualCorrect}/${currentMode.numTrials}`;
+    bestKey = 'ufov-best';
+  }
+
+  // best score
+  const prevBest = parseInt(localStorage.getItem(bestKey) || '0', 10);
+  const isBest = score > prevBest;
+  if (isBest) {
+    try { localStorage.setItem(bestKey, String(score)); } catch (e) {}
+    bestScore = score;
+  }
+
+  // グレード（モード別）
+  let g = 'D', gc = '#8b949e';
+  if (currentMode.type === 'fixed') {
+    // 正答率ベース: S 90% / A 80% / B 65% / C 45%
+    if (score >= 90)      { g = 'S'; gc = '#fbbf24'; }
+    else if (score >= 80) { g = 'A'; gc = '#34d399'; }
+    else if (score >= 65) { g = 'B'; gc = '#06b6d4'; }
+    else if (score >= 45) { g = 'C'; gc = '#818cf8'; }
+  } else {
+    // 閾値ベース
+    if (score >= 90)      { g = 'S'; gc = '#fbbf24'; }
+    else if (score >= 75) { g = 'A'; gc = '#34d399'; }
+    else if (score >= 55) { g = 'B'; gc = '#06b6d4'; }
+    else if (score >= 35) { g = 'C'; gc = '#818cf8'; }
+  }
+
+  const gcEl = document.getElementById('gradeCircle');
+  gcEl.style.border = `3px solid ${gc}`;
+  gcEl.style.boxShadow = `0 0 28px ${gc}33`;
+  document.getElementById('gradeLetter').style.color = gc;
+  document.getElementById('gradeLetter').textContent = g;
+  document.getElementById('gradeScore').textContent = score + (currentMode.type === 'fixed' ? '%' : ' pt');
+  document.getElementById('newBest').style.display = isBest ? 'block' : 'none';
+
+  // スコアカード（モード別ラベル）
+  document.getElementById('rScore').textContent = val1;
+  document.getElementById('rScoreLabel').textContent = label1;
+  document.getElementById('rAvgSoa').textContent = val2;
+  document.getElementById('rAvgSoaLabel').textContent = label2;
+  document.getElementById('rMinSoa').textContent = val3;
+  document.getElementById('rMinSoaLabel').textContent = label3;
+  document.getElementById('rPerfect').textContent = val4;
+  document.getElementById('rPerfectLabel').textContent = label4;
+
+  document.getElementById('dotRow').innerHTML = trialResults.map(t =>
+    `<div class="dot" style="background:${t.dualOk ? '#34d399' : (t.centerOk || t.periphOk ? '#fbbf24' : '#f87171')};opacity:0.7"></div>`
+  ).join('');
+
+  // モード名を結果画面に表示
+  const modeBadge = document.getElementById('resultMode');
+  if (modeBadge) modeBadge.textContent = currentMode.name + (currentMode.type === 'fixed' ? ' (論文準拠)' : ' (階段法)');
+
+  saveScore(score);
+  showScreen('result');
+}
+
+async function saveScore(score) {
+  const modeName = currentMode ? currentMode.name : null;
+  const doSave = async (user) => {
+    if (!user) return;
+    try {
+      await db.collection("results").add({
+        gameId:   "eSports-Training",
+        gameName: "UFOV",
+        score:    score,
+        mode:     modeName,
+        userId:   user.uid,
+        playedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (err) {
+      console.error("スコアの保存に失敗しました:", err);
+    }
+  };
+  if (typeof auth === 'undefined') return;
+  if (auth.currentUser) {
+    await doSave(auth.currentUser);
+  } else {
+    await new Promise(resolve => {
+      const unsub = auth.onAuthStateChanged(user => { unsub(); doSave(user).then(resolve); });
+    });
+  }
+}
+
+window.addEventListener('load', () => {
+  setupCanvas();
+  hideAnswers();
+  window.addEventListener('resize', () => {
+    if (phase === 'menu' || phase === 'done') setupCanvas();
+  });
+});
+</script>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+
+</body>
+</html>
