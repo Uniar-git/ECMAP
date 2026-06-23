@@ -7,12 +7,16 @@ const GAMES = [
 ];
 
 const DEFAULT_SETTINGS = {
+  theme: "auto", // "auto" | "light" | "dark"
   weeklyGoal: 3,
   rotation: ["nback", "mot", "cat", "ufov"],
   rotationEnabled: { nback: true, mot: true, cat: true, ufov: true },
   notificationTime: "20:00",
   notificationEnabled: false,
 };
+
+const THEME_COLORS = { light: "#fbfaf7", dark: "#1a1a1f" };
+const VALID_THEMES = ["auto", "light", "dark"];
 
 const SETTINGS_KEY = "ecmap_settings";
 
@@ -103,7 +107,9 @@ function normalizeSettings(s) {
   // rotationEnabled も補完
   const enabled = { ...merged.rotationEnabled };
   validIds.forEach(id => { if (typeof enabled[id] !== "boolean") enabled[id] = true; });
-  return { ...merged, rotation, rotationEnabled: enabled };
+  // theme バリデーション
+  const theme = VALID_THEMES.includes(merged.theme) ? merged.theme : "auto";
+  return { ...merged, rotation, rotationEnabled: enabled, theme };
 }
 
 async function fetchSettings(uid) {
@@ -124,6 +130,79 @@ async function persistSettings(uid, settings) {
     console.warn("settings save failed", err);
     showError("設定の保存に失敗しました。ネットワーク接続を確認してください。");
   }
+}
+
+// ===== テーマ管理 =====
+function isOSDark() {
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+function resolvedTheme(theme) {
+  if (theme === "auto") return isOSDark() ? "dark" : "light";
+  return theme;
+}
+
+function applyTheme(theme, { animate = true } = {}) {
+  const root = document.documentElement;
+  if (animate) {
+    root.classList.add("theme-transitioning");
+    clearTimeout(applyTheme._timer);
+    applyTheme._timer = setTimeout(() => root.classList.remove("theme-transitioning"), 360);
+  }
+  if (theme === "auto") {
+    root.removeAttribute("data-theme");
+  } else {
+    root.setAttribute("data-theme", theme);
+  }
+  updateThemeColorMeta(theme);
+  // チャートのテーマ依存色を再適用
+  if (chartInstance && cachedHistory && cachedHistory.length > 0) {
+    // フェード完了後に再描画して色をなじませる
+    setTimeout(() => renderChart(cachedHistory), animate ? 360 : 0);
+  }
+}
+
+function updateThemeColorMeta(theme) {
+  // 既存meta tagを一度削除
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove());
+  const head = document.head;
+  if (theme === "auto") {
+    // OS追従: 2つの media-attached meta
+    const lightMeta = document.createElement("meta");
+    lightMeta.name = "theme-color";
+    lightMeta.setAttribute("media", "(prefers-color-scheme: light)");
+    lightMeta.content = THEME_COLORS.light;
+    head.appendChild(lightMeta);
+    const darkMeta = document.createElement("meta");
+    darkMeta.name = "theme-color";
+    darkMeta.setAttribute("media", "(prefers-color-scheme: dark)");
+    darkMeta.content = THEME_COLORS.dark;
+    head.appendChild(darkMeta);
+  } else {
+    const meta = document.createElement("meta");
+    meta.name = "theme-color";
+    meta.content = THEME_COLORS[theme] || THEME_COLORS.light;
+    head.appendChild(meta);
+  }
+}
+
+function watchOSThemeChange() {
+  if (!window.matchMedia) return;
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  const handler = () => {
+    // 自動モード時のみチャート再描画（CSS変数自体は @media で自動切替）
+    if (currentSettings.theme === "auto") {
+      if (chartInstance && cachedHistory && cachedHistory.length > 0) {
+        renderChart(cachedHistory);
+      }
+    }
+  };
+  if (mq.addEventListener) mq.addEventListener("change", handler);
+  else if (mq.addListener) mq.addListener(handler); // 旧Safari
+}
+
+function getCssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
 // ===== 週・ストリーク計算 =====
@@ -185,28 +264,65 @@ function daysSinceLastPlay(history) {
   return Math.floor(diffMs / (24 * 60 * 60 * 1000));
 }
 
-// ===== 今日のローテーション =====
-function getTodayRotationGame(settings) {
+// ===== 今日プレイ済みの種目集合 =====
+function getGamesPlayedToday(history) {
+  const todayStart = getTodayStart();
+  const set = new Set();
+  history.forEach(r => {
+    if (getPlayedAtDate(r) >= todayStart && r.gameName) set.add(r.gameName);
+  });
+  return set;
+}
+
+// ===== ヒーローに出すゲームを決定 =====
+// - 曜日由来の "今日のスロット" を起点に、有効なローテーションを順番に走査
+// - 今日まだプレイしていない種目を返す（連続で1日に複数種目をこなしやすくする）
+// - 全部やり終えていたら "全クリア" 状態を返す
+function getHeroSuggestion(settings, playedTodaySet) {
   const enabledIds = settings.rotation.filter(id => settings.rotationEnabled[id]);
-  if (enabledIds.length === 0) return GAMES[0];
+  if (enabledIds.length === 0) {
+    return { game: GAMES[0], isFollowUp: false, allPlayedToday: false };
+  }
   const day = new Date().getDay(); // 0=Sun ... 6=Sat
   const monIndex = day === 0 ? 6 : day - 1; // Mon=0, Sun=6
-  const id = enabledIds[monIndex % enabledIds.length];
-  return GAMES.find(g => g.id === id) || GAMES[0];
+  const startIdx = monIndex % enabledIds.length;
+
+  for (let i = 0; i < enabledIds.length; i++) {
+    const idx = (startIdx + i) % enabledIds.length;
+    const id = enabledIds[idx];
+    const game = GAMES.find(g => g.id === id);
+    if (!game) continue;
+    if (!playedTodaySet.has(game.name)) {
+      return { game, isFollowUp: i > 0, allPlayedToday: false };
+    }
+  }
+
+  // 全種目クリア
+  const fallback = GAMES.find(g => g.id === enabledIds[startIdx]) || GAMES[0];
+  return { game: fallback, isFollowUp: false, allPlayedToday: true };
 }
 
 // ===== 動的コピー =====
 function buildDynamicCopy(state) {
-  const { isFirstTime, playedToday, thisWeekCount, weeklyGoal, weekStreak, daysAway } = state;
+  const { isFirstTime, allPlayedToday, isFollowUp, thisWeekCount, weeklyGoal, weekStreak, daysAway } = state;
   if (isFirstTime) {
     return "ようこそ。まず1つだけ、約1分で終わります。";
   }
-  if (playedToday && thisWeekCount >= weeklyGoal) {
-    return "今週の目標達成！ おつかれさまでした。";
+  // 全種目クリア
+  if (allPlayedToday && thisWeekCount >= weeklyGoal) {
+    return "今日は全種目クリア＆今週の目標達成！おつかれさまでした。";
   }
-  if (playedToday) {
-    return `今日もおつかれさまでした。残り${weeklyGoal - thisWeekCount}回でゴールです。`;
+  if (allPlayedToday) {
+    return `今日は全種目クリア！今週はあと${weeklyGoal - thisWeekCount}回。`;
   }
+  // 今日 1種目以上やった → 次の種目を提案
+  if (isFollowUp && thisWeekCount >= weeklyGoal) {
+    return "今週の目標達成。気が向いたらもう1種目どうですか？";
+  }
+  if (isFollowUp) {
+    return "ナイス！流れに乗ってもう1種目どうですか？";
+  }
+  // まだ今日プレイしていない
   if (daysAway >= 3) {
     return "おかえりなさい。今日からまた、気軽に再開しましょう。";
   }
@@ -227,11 +343,11 @@ function renderUser(user) {
 
 // ===== ヒーロー描画 =====
 function renderHero(history, settings) {
-  const game = getTodayRotationGame(settings);
+  const playedTodaySet = getGamesPlayedToday(history);
+  const { game, isFollowUp, allPlayedToday } = getHeroSuggestion(settings, playedTodaySet);
   const weekStart = getMondayStart();
   const thisWeekCount = countPlaysInWeek(history, weekStart);
   const weekStreak = calcWeekStreak(history, settings.weeklyGoal);
-  const playedToday = isPlayedToday(history);
   const daysAway = daysSinceLastPlay(history);
   const isFirstTime = history.length === 0;
 
@@ -254,7 +370,7 @@ function renderHero(history, settings) {
 
   // 動的コピー
   document.getElementById("hero-copy").textContent = buildDynamicCopy({
-    isFirstTime, playedToday, thisWeekCount,
+    isFirstTime, allPlayedToday, isFollowUp, thisWeekCount,
     weeklyGoal: settings.weeklyGoal, weekStreak, daysAway,
   });
 
@@ -265,8 +381,35 @@ function renderHero(history, settings) {
   // CTA色
   const startBtn = document.getElementById("hero-start-btn");
   startBtn.style.background = game.color;
-  startBtn.style.color = ["#06b6d4", "#f97316", "#ec4899"].includes(game.color) ? "#fff" : "#fff";
+  startBtn.style.color = "#fff";
   startBtn.onclick = () => { window.location.href = game.file; };
+  // 全クリア時は「もう一度」を許容しつつ、ラベルで余白を作る
+  startBtn.textContent = allPlayedToday ? "▶ もう一度" : "▶ はじめる";
+
+  // 今日プレイ済みチップ
+  renderHeroProgress(playedTodaySet);
+}
+
+function renderHeroProgress(playedTodaySet) {
+  const wrap = document.getElementById("hero-progress");
+  const chipsEl = document.getElementById("hero-progress-chips");
+  if (!wrap || !chipsEl) return;
+  if (playedTodaySet.size === 0) {
+    wrap.setAttribute("hidden", "");
+    chipsEl.innerHTML = "";
+    return;
+  }
+  wrap.removeAttribute("hidden");
+  // GAMES 順で表示（安定した並び）
+  chipsEl.innerHTML = GAMES
+    .filter(g => playedTodaySet.has(g.name))
+    .map(g => `
+      <span class="played-chip">
+        <span class="played-chip-dot" style="background:${g.color};"></span>
+        ${g.name}
+        <span class="played-chip-check">✓</span>
+      </span>
+    `).join("");
 }
 
 // ===== 簡素化グリッド =====
@@ -435,6 +578,9 @@ function renderChart(history) {
 
   if (chartInstance) chartInstance.destroy();
 
+  const tickColor = getCssVar("--text-secondary") || "#707070";
+  const gridColor = getCssVar("--border") || "#ececea";
+
   chartInstance = new Chart(ctx, {
     type: "line",
     data: { labels, datasets },
@@ -442,11 +588,11 @@ function renderChart(history) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { labels: { color: "#8b949e", font: { size: 11 } } }
+        legend: { labels: { color: tickColor, font: { size: 11 } } }
       },
       scales: {
-        x: { ticks: { color: "#8b949e", font: { size: 11 } }, grid: { color: "#30363d" } },
-        y: { ticks: { color: "#8b949e", font: { size: 11 } }, grid: { color: "#30363d" } }
+        x: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor } },
+        y: { ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor } }
       }
     }
   });
@@ -493,13 +639,41 @@ async function logout() {
 // ===== 設定モーダル =====
 function openSettingsModal() {
   draftSettings = JSON.parse(JSON.stringify(currentSettings));
+  renderThemePicker();
   renderGoalPicker();
   renderRotationList();
   document.getElementById("notification-time").value = draftSettings.notificationTime || "20:00";
   document.getElementById("settings-modal").removeAttribute("hidden");
 }
 
+function renderThemePicker() {
+  const el = document.getElementById("theme-picker");
+  if (!el) return;
+  const options = [
+    { value: "auto",  label: "自動",   icon: "◐" },
+    { value: "light", label: "ライト", icon: "☀" },
+    { value: "dark",  label: "ダーク", icon: "☾" },
+  ];
+  el.innerHTML = options.map(o => `
+    <button class="theme-btn ${draftSettings.theme === o.value ? "active" : ""}" data-theme="${o.value}">
+      <span class="theme-btn-icon">${o.icon}</span> ${o.label}
+    </button>
+  `).join("");
+  el.querySelectorAll(".theme-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      draftSettings.theme = btn.dataset.theme;
+      // プレビュー: 設定モーダルを開いたまま即時反映
+      applyTheme(draftSettings.theme);
+      renderThemePicker();
+    });
+  });
+}
+
 function closeSettingsModal() {
+  // プレビューしたテーマを保存済みの値に戻す（キャンセル時のため）
+  if (draftSettings && draftSettings.theme !== currentSettings.theme) {
+    applyTheme(currentSettings.theme);
+  }
   document.getElementById("settings-modal").setAttribute("hidden", "");
   draftSettings = null;
 }
@@ -622,6 +796,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const cached = loadSettingsFromCache();
   if (cached) currentSettings = cached;
 
+  // 初期テーマ適用（inline scriptで先行適用済みだが theme-color meta 等を正しくセット）
+  applyTheme(currentSettings.theme, { animate: false });
+  watchOSThemeChange();
+
   if (typeof auth === "undefined") {
     showLoadingError("Firebaseの読み込みに失敗しました。\nネットワーク接続を確認してください。");
     return;
@@ -648,8 +826,10 @@ document.addEventListener("DOMContentLoaded", () => {
       ]);
       cachedHistory = history;
       if (remoteSettings) {
+        const themeChanged = remoteSettings.theme !== currentSettings.theme;
         currentSettings = remoteSettings;
         saveSettingsToCache(currentSettings);
+        if (themeChanged) applyTheme(currentSettings.theme);
       }
       renderAll(cachedHistory, currentSettings);
     } catch (err) {

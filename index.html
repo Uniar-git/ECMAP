@@ -2,10 +2,28 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" id="theme-color-light" media="(prefers-color-scheme: light)" content="#fbfaf7">
+  <meta name="theme-color" id="theme-color-dark"  media="(prefers-color-scheme: dark)"  content="#1a1a1f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>ECMAP - eSports Training</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
+  <!-- 初回ロード時のフラッシュ防止: localStorageから即座にテーマ適用 -->
+  <script>
+    (function() {
+      try {
+        var raw = localStorage.getItem("ecmap_settings");
+        if (!raw) return;
+        var s = JSON.parse(raw);
+        if (s && (s.theme === "dark" || s.theme === "light")) {
+          document.documentElement.setAttribute("data-theme", s.theme);
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
 
@@ -69,6 +87,11 @@
         <button class="hero-start-btn" id="hero-start-btn">▶ はじめる</button>
       </div>
 
+      <div class="hero-progress" id="hero-progress" hidden>
+        <span class="hero-progress-label">今日プレイ済み</span>
+        <span class="hero-progress-chips" id="hero-progress-chips"></span>
+      </div>
+
       <button class="hero-toggle" id="hero-toggle" aria-expanded="false">
         他のトレーニングから選ぶ <span class="toggle-arrow">▼</span>
       </button>
@@ -120,6 +143,12 @@
         <button class="icon-btn" id="settings-close" aria-label="閉じる">✕</button>
       </div>
       <div class="modal-body">
+
+        <div class="setting-block">
+          <div class="setting-label">テーマ</div>
+          <div class="setting-desc">「自動」を選ぶとお使いの端末（OS）の設定に追従します。</div>
+          <div class="theme-picker" id="theme-picker"></div>
+        </div>
 
         <div class="setting-block">
           <div class="setting-label">週の目標回数</div>

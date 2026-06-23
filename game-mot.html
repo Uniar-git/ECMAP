@@ -298,20 +298,20 @@ body {
     <div class="mode-cards">
       <button class="mode-card" data-mode="STANDARD" onclick="selectMode('STANDARD')">
         <div class="mode-name">STANDARD</div>
-        <div class="mode-sub">論文準拠</div>
+        <div class="mode-sub">論文準拠 (短縮版)</div>
         <div class="mode-desc">
-          開始速度 1.0<br>
-          固定ステップ ×1.10<br>
-          スコア = 後半6 trial 幾何平均
+          全5 trial<br>
+          開始速度 1.0 / 固定ステップ ×1.10<br>
+          スコア = 後半3 trial 幾何平均
         </div>
       </button>
       <button class="mode-card" data-mode="TRAINING" onclick="selectMode('TRAINING')">
         <div class="mode-name">TRAINING</div>
         <div class="mode-sub">アスリート向け</div>
         <div class="mode-desc">
-          開始速度 1.6<br>
-          反転前×1.5 → 反転後×1.2<br>
-          スコア = 後半8 trial 平均
+          全10 trial<br>
+          開始速度 1.6 / 反転前×1.5 → 反転後×1.2<br>
+          スコア = 後半6 trial 平均
         </div>
       </button>
     </div>
@@ -439,18 +439,18 @@ const SPEED_MIN  = 0.25;
 const SPEED_MAX  = 6.0;
 
 // ── Modes ──
-// STANDARD: Faubert (2013) 準拠
+// STANDARD: Faubert (2013) 準拠 (短縮版)
 //   開始速度 1.0, 固定 1up/1down, ターゲット指示 1秒
-//   スコア = 後半6 trials の幾何平均（論文の典型的集計）
+//   全5 trials / スコア = 後半3 trials の幾何平均
 // TRAINING: アスリート向け
 //   開始速度 1.6, アダプティブ階段法 (Levitt 1971)
-//   スコア = 後半8 trials の平均
+//   全10 trials / スコア = 後半6 trials の平均
 const MODES = {
   STANDARD: {
     name: 'STANDARD',
     type: 'fixed-step',
-    numTrials: 15,
-    scoreLastN: 6,
+    numTrials: 5,
+    scoreLastN: 3,
     speedInitial: 1.00,
     stepUp: 1.10,
     stepDown: 1 / 1.10,
@@ -459,8 +459,8 @@ const MODES = {
   TRAINING: {
     name: 'TRAINING',
     type: 'adaptive-step',
-    numTrials: 15,
-    scoreLastN: 8,
+    numTrials: 10,
+    scoreLastN: 6,
     speedInitial: 1.60,
     stepUpLarge: 1.50,
     stepDownLarge: 1 / 1.50,
